@@ -71,9 +71,7 @@ class ReplayEngine:
 
         self.current_fault = fault
         self.current_run = run
-
         self.current_dataframe = dataframe
-
         self.current_position = 0
 
     def next_sample(self) -> Optional[dict]:
@@ -97,7 +95,6 @@ class ReplayEngine:
         ]
 
         self.current_position += 1
-
         payload = row.to_dict()
 
         payload["_stream"] = {
