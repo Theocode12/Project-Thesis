@@ -1,13 +1,15 @@
-mqtt-broker:
-  build:
-    context: ./mqtt
+services:
 
-  container_name: mqtt-broker
+  mqtt-broker:
+    build:
+      context: ./mqtt
 
-  ports:
-    - "1883:1883"
+    container_name: mqtt-broker
 
-  restart: unless-stopped
+    ports:
+      - "1883:1883"
+
+    restart: unless-stopped
 
   sensor-generator:
     build:
@@ -21,5 +23,5 @@ mqtt-broker:
       - ./datasets:/datasets
 
     environment:
-      MQTT_HOST: mqtt
+      MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
