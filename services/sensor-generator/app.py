@@ -21,11 +21,11 @@ log = logging.getLogger("app")
 log.info("Starting sensor-generator service")
 
 catalog = Catalog(
-        "dataset/runtime/catalog.json"
+        "datasets/runtime/catalog.json"
     )
 
 loader = DataLoader(
-        "dataset/runtime"
+        "datasets/runtime"
     )
 
 replay_engine = ReplayEngine(

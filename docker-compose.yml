@@ -22,7 +22,7 @@ services:
       - mqtt-broker
 
     volumes:
-      - ./datasets:/datasets
+      - ./datasets:/app/datasets
 
     environment:
       MQTT_HOST: mqtt-broker
