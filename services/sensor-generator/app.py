@@ -37,8 +37,6 @@ replay_engine.set_fault(0)
 
 mqtt_service = MQTTService(
         MQTTConfig(
-            host="localhost",
-            port=1883,
             client_id="sensor-generator"
         )
     )
