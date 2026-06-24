@@ -5,6 +5,7 @@ from replay_engine import ReplayEngine
 
 from shared.mqtt_topics import MQTTOPIC
 from shared.mqtt_service import MQTTService
+from shared.mqtt_message_envelop import MQTTMessageEnvelope
 
 class SensorGeneratorService:
 
@@ -46,19 +47,6 @@ class SensorGeneratorService:
         self.mqtt_service.start()
         self.running = True
         self.replay_engine.start()
-
-        # self.stream_thread = threading.Thread(
-        #     target=self._stream_loop,
-        #     daemon=True
-        # )
-
-        # self.status_thread = threading.Thread(
-        #     target=self._status_loop,
-        #     daemon=True
-        # )
-
-        # self.stream_thread.start()
-        # self.status_thread.start()
 
     def stop(self):
 
@@ -130,38 +118,31 @@ class SensorGeneratorService:
             payload["interval"]
         )
 
-    # def _stream_loop(self):
+    def publish_sample(self):
+        
+        sample = self.replay_engine.next_sample()
 
-    #     while self.running:
+        if sample is not None:
+            message = MQTTMessageEnvelope.create(
+                source="sensor-generator",
+                payload=sample
+            )
+            self.mqtt_service.publish(
+                MQTTOPIC.SENSOR_RAW,
+                message.to_dict()
+            )
 
-    #         sample = (
-    #             self.replay_engine
-    #             .next_sample()
-    #         )
+    def publish_status(self):
 
-    #         if sample is not None:
-
-    #             self.mqtt_service.publish(
-    #                 MQTTOPIC.SENSOR_RAW,
-    #                 sample
-    #             )
-
-    #         time.sleep(
-    #             self.STREAM_INTERVAL_SECONDS
-    #         )
-
-    # def _status_loop(self):
-
-    #     while self.running:
-
-    #         self.mqtt_service.publish(
-    #             MQTTOPIC.SENSOR_STATUS,
-    #             self.replay_engine.get_status()
-    #         )
-
-    #         time.sleep(
-    #             self.STATUS_INTERVAL_SECONDS
-    #         )
+        status = self.replay_engine.get_status()
+        message = MQTTMessageEnvelope.create(
+            source="sensor-generator",
+            payload=status
+        )
+        self.mqtt_service.publish(
+            MQTTOPIC.SENSOR_STATUS,
+            message.to_dict()
+        )
 
     # Alternative to Threads
     def run(self):

@@ -3,7 +3,7 @@ from datetime import datetime, UTC
 
 
 @dataclass(slots=True)
-class MessageEnvelope:
+class MQTTMessageEnvelope:
 
     source: str
 
@@ -16,7 +16,7 @@ class MessageEnvelope:
         cls,
         source: str,
         payload: dict
-    ) -> "MessageEnvelope":
+    ) -> "MQTTMessageEnvelope":
 
         return cls(
             source=source,
