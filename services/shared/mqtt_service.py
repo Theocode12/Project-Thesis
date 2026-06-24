@@ -1,10 +1,14 @@
 import json
+import logging
 from typing import Any, Callable
 
 import paho.mqtt.client as mqtt
 
-from mqtt_config import MQTTConfig
-from services.shared.mqtt_topics import MQTTOPIC
+from .mqtt_config import MQTTConfig
+from .mqtt_topics import MQTTOPIC
+
+log = logging.getLogger(__name__)
+
 
 class MQTTService:
 
@@ -36,9 +40,17 @@ class MQTTService:
             self.config.keepalive
         )
 
+        log.info(
+            "Connected to MQTT broker at %s:%s",
+            self.config.host,
+            self.config.port,
+        )
+
     def start(self) -> None:
 
         self.client.loop_start()
+
+        log.info("MQTT network loop started")
 
     def stop(self) -> None:
 
@@ -46,16 +58,25 @@ class MQTTService:
 
         self.client.disconnect()
 
+        log.info("MQTT network loop stopped and disconnected")
+
     def publish(
         self,
         topic: MQTTOPIC,
         payload: dict
     ) -> None:
 
-        self.client.publish(
+        result = self.client.publish(
             topic.value,
             json.dumps(payload)
         )
+
+        if result.rc != mqtt.MQTT_ERR_SUCCESS:
+            log.error(
+                "Failed to publish to %s | reason=%s",
+                topic.value,
+                result.rc,
+            )
 
     def subscribe(
         self,
@@ -67,6 +88,8 @@ class MQTTService:
 
         self.client.subscribe(topic)
 
+        log.info("Subscribed to %s", topic)
+
     def _on_connect(
         self,
         client: mqtt.Client,
@@ -76,13 +99,16 @@ class MQTTService:
         properties: Any
     ) -> None:
 
-        print(
-            f"MQTT connected: {reason_code}"
+        log.info(
+            "MQTT connected | reason_code=%s",
+            reason_code,
         )
 
         for topic in self.callbacks:
 
             client.subscribe(topic)
+
+            log.info("Resubscribed to %s", topic)
 
     def _on_message(
         self,
@@ -94,6 +120,7 @@ class MQTTService:
         topic = msg.topic
 
         if topic not in self.callbacks:
+            log.debug("Ignoring message on unhandled topic: %s", topic)
             return
 
         try:
@@ -107,6 +134,17 @@ class MQTTService:
             payload = {
                 "raw": msg.payload.decode()
             }
+
+            log.warning(
+                "Failed to parse message payload from %s",
+                topic,
+            )
+
+        log.debug(
+            "Received message on %s | payload=%s",
+            topic,
+            payload,
+        )
 
         callback = self.callbacks[
             topic

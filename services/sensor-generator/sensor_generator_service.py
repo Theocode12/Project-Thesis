@@ -1,3 +1,4 @@
+import logging
 import time
 from os import getenv
 
@@ -6,6 +7,9 @@ from replay_engine import ReplayEngine
 from shared.mqtt_topics import MQTTOPIC
 from shared.mqtt_service import MQTTService
 from shared.mqtt_message_envelop import MQTTMessageEnvelope
+
+log = logging.getLogger(__name__)
+
 
 class SensorGeneratorService:
 
@@ -24,8 +28,6 @@ class SensorGeneratorService:
         self.STATUS_INTERVAL_SECONDS = float(
             getenv("STATUS_INTERVAL", "5")
         )
-        # self.stream_thread = None
-        # self.status_thread = None
         self._action_map = {
             "start": self._cmd_start,
             "stop": self._cmd_stop,
@@ -48,11 +50,19 @@ class SensorGeneratorService:
         self.running = True
         self.replay_engine.start()
 
+        log.info(
+            "Started | stream_interval=%ss, status_interval=%ss",
+            self.STREAM_INTERVAL_SECONDS,
+            self.STATUS_INTERVAL_SECONDS,
+        )
+
     def stop(self):
 
         self.running = False
         self.replay_engine.stop()
         self.mqtt_service.stop()
+
+        log.info("Stopped")
 
     def handle_command(
         self,
@@ -60,12 +70,18 @@ class SensorGeneratorService:
     ):
 
         if payload is None:
+            log.warning("Received empty payload")
             return
-        handler = self._action_map.get(
-            payload.get("action")
-        )
-        if handler is not None:
-            handler(payload)
+
+        action = payload.get("action")
+        handler = self._action_map.get(action)
+
+        if handler is None:
+            log.warning("Unknown action: %s", action)
+            return
+
+        log.info("Handling command: %s", action)
+        handler(payload)
 
     def _cmd_start(
         self,
@@ -89,48 +105,59 @@ class SensorGeneratorService:
         self,
         payload: dict
     ):
-        self.replay_engine.set_fault(
-            payload["fault"]
-        )
+        fault = payload["fault"]
+        self.replay_engine.set_fault(fault)
+        log.info("Fault set to %s", fault)
 
     def _cmd_set_stream(
         self,
         payload: dict
     ):
+        fault = payload["fault"]
+        run = payload["run"]
         self.replay_engine.set_stream(
-            fault=payload["fault"],
-            run=payload["run"]
+            fault=fault,
+            run=run
         )
+        log.info("Stream set to fault=%s, run=%s", fault, run)
 
     def _cmd_set_stream_interval(
         self,
         payload: dict
     ):
-        self.STREAM_INTERVAL_SECONDS = float(
-            payload["interval"]
-        )
+        interval = float(payload["interval"])
+        self.STREAM_INTERVAL_SECONDS = interval
+        log.info("Stream interval set to %ss", interval)
 
     def _cmd_set_status_interval(
         self,
         payload: dict
     ):
-        self.STATUS_INTERVAL_SECONDS = float(
-            payload["interval"]
-        )
+        interval = float(payload["interval"])
+        self.STATUS_INTERVAL_SECONDS = interval
+        log.info("Status interval set to %ss", interval)
 
     def publish_sample(self):
-        
+
         sample = self.replay_engine.next_sample()
 
-        if sample is not None:
-            message = MQTTMessageEnvelope.create(
-                source="sensor-generator",
-                payload=sample
-            )
-            self.mqtt_service.publish(
-                MQTTOPIC.SENSOR_RAW,
-                message.to_dict()
-            )
+        if sample is None:
+            return
+
+        message = MQTTMessageEnvelope.create(
+            source="sensor-generator",
+            payload=sample
+        )
+        self.mqtt_service.publish(
+            MQTTOPIC.SENSOR_RAW,
+            message.to_dict()
+        )
+
+        log.debug(
+            "Published sample | fault=%s, run=%s",
+            sample.get("_stream", {}).get("fault"),
+            sample.get("_stream", {}).get("run"),
+        )
 
     def publish_status(self):
 
@@ -144,8 +171,22 @@ class SensorGeneratorService:
             message.to_dict()
         )
 
-    # Alternative to Threads
+        log.info(
+            "Published status | running=%s, fault=%s, run=%s, position=%s, loaded=%s",
+            status.get("running"),
+            status.get("fault"),
+            status.get("run"),
+            status.get("position"),
+            status.get("loaded"),
+        )
+
     def run(self):
+
+        log.info(
+            "Entering run loop | stream_interval=%ss, status_interval=%ss",
+            self.STREAM_INTERVAL_SECONDS,
+            self.STATUS_INTERVAL_SECONDS,
+        )
 
         next_sample = time.time()
 
@@ -153,16 +194,23 @@ class SensorGeneratorService:
 
         while self.running:
 
-            now = time.time()
+            try:
 
-            if now >= next_sample:
+                now = time.time()
 
-                self.publish_sample()
-                next_sample += self.STREAM_INTERVAL_SECONDS
+                if now >= next_sample:
 
-            if now >= next_status:
+                    self.publish_sample()
+                    next_sample += self.STREAM_INTERVAL_SECONDS
 
-                self.publish_status()
-                next_status += self.STATUS_INTERVAL_SECONDS
+                if now >= next_status:
 
-            time.sleep(0.05)
+                    self.publish_status()
+                    next_status += self.STATUS_INTERVAL_SECONDS
+
+                time.sleep(0.05)
+
+            except Exception:
+                log.exception(
+                    "Error in run loop"
+                )
