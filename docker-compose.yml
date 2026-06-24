@@ -16,6 +16,8 @@ services:
       context: .
       dockerfile: services/sensor-generator/Dockerfile
 
+    container_name: sensor-generator
+
     depends_on:
       - mqtt-broker
 
