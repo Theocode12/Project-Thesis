@@ -37,14 +37,9 @@ service = SensorGeneratorService(
         mqtt_service=mqtt_service
     )
 
-service.start()
-
 try:
-
-    while True:
-        pass
-
-
+    service.start()
+    service.run()
 except KeyboardInterrupt:
-
     service.stop()
+

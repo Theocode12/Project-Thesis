@@ -165,4 +165,4 @@ class SensorGeneratorService:
                 self.publish_status()
                 next_status += self.STATUS_INTERVAL_SECONDS
 
-            time.sleep(0.01)
+            time.sleep(0.05)
