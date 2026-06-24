@@ -66,10 +66,10 @@ class SensorGeneratorService:
 
     def handle_command(
         self,
-        payload: dict | None
+        payload: dict
     ):
 
-        if payload is None:
+        if not payload:
             log.warning("Received empty payload")
             return
 
@@ -85,19 +85,19 @@ class SensorGeneratorService:
 
     def _cmd_start(
         self,
-        payload: None
+        payload: dict
     ):
         self.replay_engine.start()
 
     def _cmd_stop(
         self,
-        payload: None
+        payload: dict
     ):
         self.replay_engine.stop()
 
     def _cmd_reset(
         self,
-        payload: None
+        payload: dict
     ):
         self.replay_engine.reset()
 
@@ -137,12 +137,12 @@ class SensorGeneratorService:
         self.STATUS_INTERVAL_SECONDS = interval
         log.info("Status interval set to %ss", interval)
 
-    def publish_sample(self):
+    def publish_sample(self) -> dict | None:
 
         sample = self.replay_engine.next_sample()
 
         if sample is None:
-            return
+            return None
 
         message = MQTTMessageEnvelope.create(
             source="sensor-generator",
@@ -159,7 +159,9 @@ class SensorGeneratorService:
             sample.get("_stream", {}).get("run"),
         )
 
-    def publish_status(self):
+        return sample
+
+    def publish_status(self) -> dict | None:
 
         status = self.replay_engine.get_status()
         message = MQTTMessageEnvelope.create(
@@ -180,6 +182,8 @@ class SensorGeneratorService:
             status.get("loaded"),
         )
 
+        return status
+
     def run(self):
 
         log.info(
@@ -189,7 +193,6 @@ class SensorGeneratorService:
         )
 
         next_sample = time.time()
-
         next_status = time.time()
 
         while self.running:
@@ -199,12 +202,10 @@ class SensorGeneratorService:
                 now = time.time()
 
                 if now >= next_sample:
-
                     self.publish_sample()
                     next_sample += self.STREAM_INTERVAL_SECONDS
 
                 if now >= next_status:
-
                     self.publish_status()
                     next_status += self.STATUS_INTERVAL_SECONDS
 
