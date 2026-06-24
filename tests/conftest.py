@@ -4,6 +4,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent.parent
 
 SERVICE_DIRS = [
+    PROJECT_ROOT / "services",
     PROJECT_ROOT / "services" / "sensor-generator",
     PROJECT_ROOT / "services" / "shared",
 ]

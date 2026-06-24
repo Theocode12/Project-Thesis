@@ -11,7 +11,8 @@ mqtt-broker:
 
   sensor-generator:
     build:
-      context: ./services/sensor-generator
+      context: .
+      dockerfile: services/sensor-generator/Dockerfile
 
     depends_on:
       - mqtt-broker
