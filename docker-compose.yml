@@ -27,3 +27,18 @@ services:
     environment:
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
+
+
+  edge-detector:
+    build:
+      context: .
+      dockerfile: services/edge-detector/Dockerfile
+
+    container_name: edge-detector
+
+    depends_on:
+      - mqtt-broker
+
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
