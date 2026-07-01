@@ -13,7 +13,6 @@ class AnomalyEvent:
 
         payload = {
             "anomaly": result["anomaly"],
-            "confidence": result["confidence"],
             "reason": result["reason"],
             "metric": result["metric"],
             "value": result["value"],

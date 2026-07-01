@@ -1,6 +1,7 @@
+import json
 import logging
 
-from detector import DummyDetector
+from autoencoder_detector import AutoEncoderDetector
 
 from edge_detector_service import (
     EdgeDetectorService
@@ -21,8 +22,21 @@ log.info(
     "Starting edge-detector service"
 )
 
-detector = DummyDetector(
-    threshold=0.5
+FEATURE_COLUMNS_PATH = "models/feature_columns.json"
+
+with open(
+    FEATURE_COLUMNS_PATH,
+    "r",
+    encoding="utf-8"
+) as fp:
+
+    FEATURE_COLUMNS = json.load(fp)
+
+detector = AutoEncoderDetector(
+    model_path="models/autoencoder.pt",
+    scaler_path="models/scaler.pkl",
+    threshold_path="models/threshold.json",
+    feature_columns=FEATURE_COLUMNS,
 )
 
 mqtt_service = MQTTService(
