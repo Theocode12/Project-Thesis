@@ -10,3 +10,4 @@ experiments
 models
 docs
 *.md
+**/Dockerfile

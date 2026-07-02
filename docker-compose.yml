@@ -21,6 +21,8 @@ services:
     depends_on:
       - mqtt-broker
 
+    # restart: unless-stopped
+
     volumes:
       - ./datasets:/app/datasets
 
@@ -38,6 +40,8 @@ services:
 
     depends_on:
       - mqtt-broker
+
+    # restart: unless-stopped
 
     environment:
       MQTT_HOST: mqtt-broker
