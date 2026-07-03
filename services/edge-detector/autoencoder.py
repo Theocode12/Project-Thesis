@@ -11,62 +11,52 @@ at runtime using `load_state_dict()`.
 import torch
 import torch.nn as nn
 
-
 class Encoder(nn.Module):
-    """
-    Encoder network.
-    """
 
     def __init__(
-        self,
-        input_size: int,
-        hidden_size: int,
-        latent_size: int,
-        dropout: float = 0.0,
-    ) -> None:
+            self,
+            input_size,
+            hidden_size,
+            latent_size,
+            dropout):
 
         super().__init__()
 
-        self.network = nn.Sequential(
+        self.encoder = nn.Sequential(
+
             nn.Linear(input_size, hidden_size),
             nn.Tanh(),
             nn.Dropout(dropout),
 
             nn.Linear(hidden_size, hidden_size),
             nn.Tanh(),
-            nn.Dropout(dropout),
+            nn.Dropout(dropout)
         )
 
-        self.latent = nn.Linear(
-            hidden_size,
-            latent_size
-        )
+        self.latent = nn.Linear(hidden_size, latent_size)
 
     def forward(
         self,
         x: torch.Tensor
     ) -> torch.Tensor:
 
-        x = self.network(x)
+        x = self.encoder(x)
         return self.latent(x)
 
 
 class Decoder(nn.Module):
-    """
-    Decoder network.
-    """
 
     def __init__(
-        self,
-        input_size: int,
-        hidden_size: int,
-        latent_size: int,
-        dropout: float = 0.0,
-    ) -> None:
+            self,
+            input_size,
+            hidden_size,
+            latent_size,
+            dropout):
 
         super().__init__()
 
-        self.network = nn.Sequential(
+        self.decoder = nn.Sequential(
+
             nn.Linear(latent_size, hidden_size),
             nn.Tanh(),
             nn.Dropout(dropout),
@@ -75,7 +65,7 @@ class Decoder(nn.Module):
             nn.Tanh(),
             nn.Dropout(dropout),
 
-            nn.Linear(hidden_size, input_size),
+            nn.Linear(hidden_size, input_size)
         )
 
     def forward(
@@ -83,22 +73,18 @@ class Decoder(nn.Module):
         z: torch.Tensor
     ) -> torch.Tensor:
 
-        return self.network(z)
+
+        return self.decoder(z)
 
 
 class SparseAutoEncoder(nn.Module):
-    """
-    Feed-forward Autoencoder used for anomaly detection.
-
-    """
 
     def __init__(
-        self,
-        input_size: int = 52,
-        hidden_size: int = 128,
-        latent_size: int = 64,
-        dropout: float = 0.0,
-    ) -> None:
+            self,
+            input_size=52,
+            hidden_size=128,
+            latent_size=64,
+            dropout=0.0):
 
         super().__init__()
 
@@ -106,23 +92,21 @@ class SparseAutoEncoder(nn.Module):
             input_size=input_size,
             hidden_size=hidden_size,
             latent_size=latent_size,
-            dropout=dropout,
+            dropout=dropout
         )
 
         self.decoder = Decoder(
             input_size=input_size,
             hidden_size=hidden_size,
             latent_size=latent_size,
-            dropout=dropout,
+            dropout=dropout
         )
 
-    def forward(
-        self,
-        x: torch.Tensor
-    ) -> torch.Tensor:
+    def forward(self, x):
 
         latent = self.encoder(x)
 
         reconstruction = self.decoder(latent)
 
         return reconstruction
+
