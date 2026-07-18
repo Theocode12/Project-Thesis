@@ -8,3 +8,4 @@ class ServiceName(str, Enum):
     EDGE_CLASSIFIER = "edge-classifier"
     CLOUD_CLASSIFIER = "cloud-classifier"
     DASHBOARD = "dashboard"
+    DATA_MANAGEMENT = "data-management"

@@ -46,3 +46,28 @@ services:
     environment:
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
+
+
+  data-management:
+    build:
+      context: .
+      dockerfile: services/data-management/Dockerfile
+
+    container_name: data-management
+
+    depends_on:
+      - mqtt-broker
+
+    # restart: unless-stopped
+
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
+      TARGET_BATCH_COUNT: 10
+      MIN_BATCH_INTERVAL: 2.0
+      MAX_BATCH_INTERVAL: 30.0
+      CLOUD_STORAGE_DIR: /app/cloud_uploads
+      LOCAL_CACHE_DIR: /app/local_cache
+      CACHE_RETRY_INTERVAL: 30.0
+      CACHE_CLEANUP_INTERVAL: 300.0
+      CACHE_CLEANUP_MAX_AGE: 3600
