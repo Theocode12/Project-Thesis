@@ -124,6 +124,7 @@ class OrchestratorService:
             decision["reported"] = self.reporter.report(
                 decision["batch"],
                 meta={
+                    "batch_id": decision["batch_id"],
                     "window_start": decision["window_start"],
                     "window_end": decision["window_end"],
                     "anomaly_ratio": decision["anomaly_ratio"],
@@ -146,6 +147,7 @@ class OrchestratorService:
 
     def _publish_decision(self, decision: dict) -> None:
         payload = {
+            "batch_id": decision["batch_id"],
             "decision": decision["decision"],
             "confidence": decision["confidence"],
             "window_start": decision["window_start"],

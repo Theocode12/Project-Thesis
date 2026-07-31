@@ -2,6 +2,7 @@ import logging
 import threading
 import time
 from datetime import UTC, datetime
+from uuid import uuid4
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +123,7 @@ class DecisionEngine:
         window_end: float,
     ) -> dict:
         return {
+            "batch_id": f"batch_{uuid4().hex[:12]}",
             "decision": decision,
             "confidence": round(ratio, 4),
             "window_start": datetime.fromtimestamp(

@@ -9,6 +9,7 @@ SERVICE_DIRS = [
     PROJECT_ROOT / "services" / "edge-detector",
     PROJECT_ROOT / "services" / "data-management",
     PROJECT_ROOT / "services" / "orchestrator",
+    PROJECT_ROOT / "services" / "classifier",
     PROJECT_ROOT / "services" / "shared",
 ]
 

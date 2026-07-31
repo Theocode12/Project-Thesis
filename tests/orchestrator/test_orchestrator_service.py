@@ -50,6 +50,7 @@ def make_decision(
     batch=None,
 ):
     return {
+        "batch_id": "batch_test123456",
         "decision": decision,
         "confidence": ratio,
         "window_start": "2026-01-01T00:00:00+00:00",
@@ -162,6 +163,7 @@ class TestOrchestratorServiceEvaluate:
         assert published[0] == MQTTOPIC.ORCHESTRATOR_DECISION
         envelope = published[1]
         assert envelope["source"] == "orchestrator"
+        assert envelope["payload"]["batch_id"] == "batch_test123456"
         assert envelope["payload"]["decision"] == "anomaly"
         assert envelope["payload"]["batch_size"] == 1
         assert "batch" not in envelope["payload"]
@@ -181,6 +183,8 @@ class TestOrchestratorServiceEvaluate:
         mock_reporter.report.assert_called_once()
         reported_batch = mock_reporter.report.call_args[0][0]
         assert reported_batch == batch
+        meta = mock_reporter.report.call_args[1]["meta"]
+        assert meta["batch_id"] == "batch_test123456"
 
     def test_no_report_when_normal(
         self, service, mock_decision_engine, mock_reporter

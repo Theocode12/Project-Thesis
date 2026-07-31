@@ -146,3 +146,16 @@ class TestDecisionEngineEvaluate:
         decision = engine.evaluate()
 
         assert decision["sg_metrics"] == {}
+
+    def test_every_decision_has_batch_id(self, engine):
+        decision = engine.evaluate()
+
+        assert decision["batch_id"].startswith("batch_")
+        assert len(decision["batch_id"]) > len("batch_")
+
+    def test_batch_ids_differ_across_evaluations(self, engine):
+        first = engine.evaluate()["batch_id"]
+        engine.add_anomaly(make_event())
+        second = engine.evaluate()["batch_id"]
+
+        assert first != second
