@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -56,9 +56,10 @@ class TestDataManagementServiceStartStop:
         service.start()
 
         mock_mqtt_service.connect.assert_called_once()
-        mock_mqtt_service.subscribe.assert_called_once_with(
-            MQTTOPIC.SENSOR_RAW, service.handle_sample
-        )
+        assert mock_mqtt_service.subscribe.call_args_list == [
+            call(MQTTOPIC.SENSOR_RAW, service.handle_sample),
+            call(MQTTOPIC.SYSTEM_CONTROL, service.handle_command),
+        ]
         mock_mqtt_service.start.assert_called_once()
         assert service.running is True
 
@@ -72,21 +73,72 @@ class TestDataManagementServiceStartStop:
         mock_mqtt_service.stop.assert_called_once()
 
 
+class TestDataManagementServiceInit:
+    def test_action_map_has_all_actions(self, service):
+        assert set(service._action_map.keys()) == {"start", "stop"}
+
+    def test_storage_enabled_by_default(self, service):
+        assert service.storage_enabled is True
+
+
+class TestDataManagementServiceHandleCommand:
+    def test_none_payload_does_nothing(self, service):
+        service.handle_command(None)
+
+        assert service.storage_enabled is True
+
+    def test_unknown_action_does_nothing(self, service):
+        service.handle_command({"action": "unknown"})
+
+        assert service.storage_enabled is True
+
+    def test_start_action_enables_storage(self, service):
+        service.storage_enabled = False
+        service.handle_command({"action": "start"})
+
+        assert service.storage_enabled is True
+
+    def test_stop_action_disables_storage(self, service):
+        service.handle_command({"action": "stop"})
+
+        assert service.storage_enabled is False
+
+
 class TestDataManagementServiceHandleSample:
 
     def test_handle_sample_adds_to_batch(
         self, service, mock_batch_manager
     ):
-        payload = {"payload": {"sensor": 1}}
+        payload = {
+            "payload": {"sample": {"sensor": 1}}
+        }
         service.handle_sample(payload)
         mock_batch_manager.add_sample.assert_called_once_with(
             {"sensor": 1}
         )
 
+    def test_handle_sample_drops_when_storage_disabled(
+        self, service, mock_batch_manager
+    ):
+        service.storage_enabled = False
+        service.handle_sample(
+            {"payload": {"sample": {"sensor": 1}}}
+        )
+
+        mock_batch_manager.add_sample.assert_not_called()
+
     def test_handle_sample_skips_no_payload(
         self, service, mock_batch_manager
     ):
         service.handle_sample({})
+        mock_batch_manager.add_sample.assert_not_called()
+
+    def test_handle_sample_skips_no_sample(
+        self, service, mock_batch_manager
+    ):
+        service.handle_sample(
+            {"payload": {"sg_metrics": {}}}
+        )
         mock_batch_manager.add_sample.assert_not_called()
 
     def test_handle_sample_skips_none_payload(
@@ -183,6 +235,22 @@ class TestDataManagementServiceRun:
 
         assert mock_cloud_storage.store.call_count >= 1
         assert mock_cache_manager.tick.call_count >= 2
+
+    def test_run_skips_flush_when_storage_disabled(
+        self, service, mock_batch_manager, mock_cache_manager
+    ):
+        def stop_on_first_tick(*args):
+            service.running = False
+
+        mock_cache_manager.tick.side_effect = stop_on_first_tick
+
+        service.running = True
+        service.storage_enabled = False
+        with patch("time.sleep"):
+            service.run()
+
+        mock_batch_manager.should_flush.assert_not_called()
+        mock_batch_manager.flush.assert_not_called()
 
     def test_run_handles_exception_continues(
         self, service, mock_batch_manager, mock_cache_manager

@@ -25,10 +25,21 @@ def mock_mqtt_service():
 
 
 @pytest.fixture
-def service(mock_detector, mock_mqtt_service):
+def mock_metrics():
+    metrics = MagicMock()
+    metrics.snapshot.return_value = {
+        "container": {"cpu_percent": 20.0},
+        "processing_time_ms": 3.0,
+    }
+    return metrics
+
+
+@pytest.fixture
+def service(mock_detector, mock_mqtt_service, mock_metrics):
     return EdgeDetectorService(
         detector=mock_detector,
         mqtt_service=mock_mqtt_service,
+        metrics=mock_metrics,
     )
 
 
@@ -55,7 +66,9 @@ class TestEdgeDetectorServiceStartStop:
 class TestEdgeDetectorServiceHandleSample:
 
     def test_extracts_payload_and_detects(self, service, mock_detector):
-        payload = {"payload": {"sensor": 1}}
+        payload = {
+            "payload": {"sample": {"sensor": 1}}
+        }
         service.handle_sample(payload)
         mock_detector.detect.assert_called_once_with({"sensor": 1})
 
@@ -68,7 +81,7 @@ class TestEdgeDetectorServiceHandleSample:
         mock_detector.detect.assert_not_called()
 
     def test_publishes_anomaly_when_detected(
-        self, service, mock_detector, mock_mqtt_service
+        self, service, mock_detector, mock_mqtt_service, mock_metrics
     ):
         mock_detector.detect.return_value = {
             "anomaly": True,
@@ -79,32 +92,53 @@ class TestEdgeDetectorServiceHandleSample:
         }
 
         payload = {
+            "timestamp": "2026-01-01T00:00:00+00:00",
             "payload": {
-                "faultNumber": 1,
-                "simulationRun": 3,
-                "sample": 50,
-            }
+                "sample": {
+                    "faultNumber": 1,
+                    "simulationRun": 3,
+                    "sample": 50,
+                },
+                "sg_metrics": {"dummy": True},
+            },
         }
         service.handle_sample(payload)
+
+        mock_metrics.start_processing.assert_called_once_with(
+            received_at="2026-01-01T00:00:00+00:00"
+        )
+        mock_metrics.snapshot.assert_called_once()
 
         assert mock_mqtt_service.publish.call_count == 1
         call_args = mock_mqtt_service.publish.call_args[0]
         assert call_args[0] == MQTTOPIC.ANOMALY_DETECTED
-        assert call_args[1]["source"] == "edge-detector"
+        event = call_args[1]
+        assert event["source"] == "edge-detector"
+        assert event["payload"]["sample"]["sample"] == 50
+        assert event["payload"]["sg_metrics"] == {"dummy": True}
+        assert event["payload"]["ed_metrics"] == {
+            "container": {"cpu_percent": 20.0},
+            "processing_time_ms": 3.0,
+        }
 
     def test_does_not_publish_when_no_anomaly(
-        self, service, mock_mqtt_service
+        self, service, mock_mqtt_service, mock_metrics
     ):
-        payload = {"payload": {"sensor": 1}}
+        payload = {
+            "payload": {"sample": {"sensor": 1}}
+        }
         service.handle_sample(payload)
         mock_mqtt_service.publish.assert_not_called()
+        mock_metrics.snapshot.assert_not_called()
 
     def test_handles_detector_exception(
         self, service, mock_detector, mock_mqtt_service
     ):
         mock_detector.detect.side_effect = Exception("detector crashed")
 
-        payload = {"payload": {"sensor": 1}}
+        payload = {
+            "payload": {"sample": {"sensor": 1}}
+        }
         service.handle_sample(payload)
 
         mock_mqtt_service.publish.assert_not_called()

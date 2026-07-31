@@ -8,7 +8,9 @@ class AnomalyEvent:
     @staticmethod
     def create(
         result: dict,
-        sample: dict
+        sample: dict,
+        sg_metrics: dict = None,
+        ed_metrics: dict = None
     ) -> MQTTMessageEnvelope:
 
         payload = {
@@ -22,9 +24,9 @@ class AnomalyEvent:
             "simulationRun": sample.get(
                 "simulationRun"
             ),
-            "sample": sample.get(
-                "sample"
-            )
+            "sample": sample,
+            "sg_metrics": sg_metrics or {},
+            "ed_metrics": ed_metrics or {},
         }
 
         return MQTTMessageEnvelope.create(

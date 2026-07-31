@@ -1,19 +1,31 @@
 import logging
+import time
 
 from detector import Detector
 from anomaly_event import AnomalyEvent
 
 from shared.mqtt_topics import MQTTOPIC
 from shared.mqtt_service import MQTTService
+from shared.service_metrics import ServiceMetrics
 
 log = logging.getLogger(__name__)
 
 
 class EdgeDetectorService:
 
-    def __init__(self, detector: Detector, mqtt_service: MQTTService):
+    def __init__(
+        self,
+        detector: Detector,
+        mqtt_service: MQTTService,
+        metrics: ServiceMetrics = None
+    ):
         self.detector = detector
         self.mqtt_service = mqtt_service
+        self.metrics = (
+            metrics or ServiceMetrics(
+                service_name="edge-detector"
+            )
+        )
         self.running = False
 
     def start(self):
@@ -31,16 +43,30 @@ class EdgeDetectorService:
 
     def handle_sample(self, payload: dict):
         try:
-            sample = payload.get("payload")
+            inner = payload.get("payload") or {}
+            sample = inner.get("sample")
             if sample is None:
                 return
 
+            self.metrics.start_processing(
+                received_at=payload.get("timestamp")
+            )
+
             result = self.detector.detect(sample)
+
             if not result["anomaly"]:
                 return
 
-            event = AnomalyEvent.create(result=result, sample=sample)
-            self.mqtt_service.publish(MQTTOPIC.ANOMALY_DETECTED, event.to_dict())
+            event = AnomalyEvent.create(
+                result=result,
+                sample=sample,
+                sg_metrics=inner.get("sg_metrics"),
+                ed_metrics=self.metrics.snapshot(),
+            )
+            self.mqtt_service.publish(
+                MQTTOPIC.ANOMALY_DETECTED,
+                event.to_dict(),
+            )
 
             log.info(
                 "Anomaly detected | metric=%s value=%s reconstruction_error=%s",
@@ -53,6 +79,5 @@ class EdgeDetectorService:
             log.exception("Error processing sample")
 
     def run(self):
-        import time
         while self.running:
             time.sleep(1)

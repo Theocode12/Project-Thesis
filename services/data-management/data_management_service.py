@@ -29,11 +29,19 @@ class DataManagementService:
         self.cache_manager = cache_manager
         self.mqtt_service = mqtt_service
         self.running = False
+        self.storage_enabled = True
+        self._action_map = {
+            "start": self._cmd_start,
+            "stop": self._cmd_stop,
+        }
 
     def start(self) -> None:
         self.mqtt_service.connect()
         self.mqtt_service.subscribe(
             MQTTOPIC.SENSOR_RAW, self.handle_sample
+        )
+        self.mqtt_service.subscribe(
+            MQTTOPIC.SYSTEM_CONTROL, self.handle_command
         )
         self.mqtt_service.start()
         self.running = True
@@ -44,9 +52,35 @@ class DataManagementService:
         self.mqtt_service.stop()
         log.info("Data management service stopped")
 
+    def handle_command(self, payload: dict) -> None:
+        if not payload:
+            log.warning("Received empty payload")
+            return
+
+        action = payload.get("action")
+        handler = self._action_map.get(action)
+
+        if handler is None:
+            log.warning("Unknown action: %s", action)
+            return
+
+        log.info("Handling command: %s", action)
+        handler(payload)
+
+    def _cmd_start(self, payload: dict) -> None:
+        self.storage_enabled = True
+        log.info("Storage enabled")
+
+    def _cmd_stop(self, payload: dict) -> None:
+        self.storage_enabled = False
+        log.info("Storage disabled")
+
     def handle_sample(self, payload: dict) -> None:
         try:
-            sample = payload.get("payload")
+            if not self.storage_enabled:
+                return
+            inner = payload.get("payload") or {}
+            sample = inner.get("sample")
             if sample is None:
                 return
             self.batch_manager.add_sample(sample)
@@ -63,7 +97,7 @@ class DataManagementService:
 
         while self.running:
             try:
-                if self.batch_manager.should_flush():
+                if self.storage_enabled and self.batch_manager.should_flush():
                     batch = self.batch_manager.flush()
                     if batch:
                         self._dispatch_batch(batch)

@@ -19,10 +19,23 @@ def mock_mqtt_service():
 
 
 @pytest.fixture
-def service(mock_replay_engine, mock_mqtt_service):
+def mock_metrics():
+    metrics = MagicMock()
+    metrics.wrap.side_effect = (
+        lambda data_key, data, extra=None: {
+            data_key: data,
+            "sg_metrics": {"dummy": True},
+        }
+    )
+    return metrics
+
+
+@pytest.fixture
+def service(mock_replay_engine, mock_mqtt_service, mock_metrics):
     return SensorGeneratorService(
         replay_engine=mock_replay_engine,
         mqtt_service=mock_mqtt_service,
+        metrics=mock_metrics,
     )
 
 
@@ -54,6 +67,7 @@ class TestSensorGeneratorServiceInit:
             s = SensorGeneratorService(
                 replay_engine=MagicMock(),
                 mqtt_service=MagicMock(),
+                metrics=MagicMock(),
             )
             assert s.STREAM_INTERVAL_SECONDS == 0.05
             assert s.STATUS_INTERVAL_SECONDS == 10.0
@@ -154,3 +168,114 @@ class TestSensorGeneratorServiceHandleCommand:
         )
 
         assert service.STATUS_INTERVAL_SECONDS == 10.0
+
+
+class TestSensorGeneratorServicePublish:
+
+    def test_publish_sample_wraps_sample_with_metrics(
+        self,
+        service,
+        mock_replay_engine,
+        mock_mqtt_service,
+        mock_metrics,
+    ):
+        sample = {"XMEAS_1": 1.0, "_stream": {"fault": 0, "run": 1}}
+        mock_replay_engine.next_sample.return_value = sample
+
+        result = service.publish_sample()
+
+        assert result == {
+            "sample": sample,
+            "sg_metrics": {"dummy": True},
+        }
+        mock_metrics.start_processing.assert_called_once()
+        mock_metrics.wrap.assert_called_once_with(
+            data_key="sample",
+            data=sample,
+            extra={
+                "stream_interval": 0.1,
+                "status_interval": 5.0,
+            },
+        )
+        mock_mqtt_service.publish.assert_called_once()
+
+    def test_publish_sample_includes_updated_intervals(
+        self, service, mock_replay_engine, mock_metrics
+    ):
+        service.handle_command(
+            {
+                "action": "set_stream_interval",
+                "interval": "0.5",
+            }
+        )
+        service.handle_command(
+            {
+                "action": "set_status_interval",
+                "interval": "10",
+            }
+        )
+        mock_replay_engine.next_sample.return_value = {"X": 1.0}
+
+        service.publish_sample()
+
+        assert mock_metrics.wrap.call_args[1]["extra"] == {
+            "stream_interval": 0.5,
+            "status_interval": 10.0,
+        }
+
+    def test_publish_sample_publishes_envelope(
+        self, service, mock_replay_engine, mock_mqtt_service
+    ):
+        mock_replay_engine.next_sample.return_value = {
+            "XMEAS_1": 2.0
+        }
+
+        service.publish_sample()
+
+        call_args = mock_mqtt_service.publish.call_args[0]
+        assert call_args[0] == MQTTOPIC.SENSOR_RAW
+        envelope = call_args[1]
+        assert envelope["source"] == "sensor-generator"
+        assert "sample" in envelope["payload"]
+        assert "sg_metrics" in envelope["payload"]
+
+    def test_publish_sample_returns_none_when_no_sample(
+        self, service, mock_replay_engine, mock_mqtt_service
+    ):
+        mock_replay_engine.next_sample.return_value = None
+
+        result = service.publish_sample()
+
+        assert result is None
+        mock_mqtt_service.publish.assert_not_called()
+
+    def test_publish_status_wraps_status_with_metrics(
+        self,
+        service,
+        mock_replay_engine,
+        mock_mqtt_service,
+        mock_metrics,
+    ):
+        status = {
+            "running": True,
+            "fault": 0,
+            "run": 1,
+            "position": 5,
+            "loaded": True,
+        }
+        mock_replay_engine.get_status.return_value = status
+
+        result = service.publish_status()
+
+        assert result == {
+            "status": status,
+            "sg_metrics": {"dummy": True},
+        }
+        call_args = mock_mqtt_service.publish.call_args[0]
+        assert call_args[0] == MQTTOPIC.SENSOR_STATUS
+        envelope = call_args[1]
+        assert envelope["payload"]["status"] == status
+        assert mock_metrics.wrap.call_args[1]["extra"] == {
+            "stream_interval": 0.1,
+            "status_interval": 5.0,
+        }

@@ -7,6 +7,7 @@ from replay_engine import ReplayEngine
 from shared.mqtt_topics import MQTTOPIC
 from shared.mqtt_service import MQTTService
 from shared.mqtt_message_envelop import MQTTMessageEnvelope
+from shared.service_metrics import ServiceMetrics
 
 log = logging.getLogger(__name__)
 
@@ -16,11 +17,17 @@ class SensorGeneratorService:
     def __init__(
         self,
         replay_engine: ReplayEngine,
-        mqtt_service: MQTTService
+        mqtt_service: MQTTService,
+        metrics: ServiceMetrics = None
     ):
 
         self.replay_engine = replay_engine
         self.mqtt_service = mqtt_service
+        self.metrics = (
+            metrics or ServiceMetrics(
+                service_name="sensor-generator"
+            )
+        )
         self.running = False
         self.STREAM_INTERVAL_SECONDS = float(
             getenv("STREAM_INTERVAL", "0.1")
@@ -137,16 +144,30 @@ class SensorGeneratorService:
         self.STATUS_INTERVAL_SECONDS = interval
         log.info("Status interval set to %ss", interval)
 
+    def _interval_metrics(self) -> dict:
+        return {
+            "stream_interval": self.STREAM_INTERVAL_SECONDS,
+            "status_interval": self.STATUS_INTERVAL_SECONDS,
+        }
+
     def publish_sample(self) -> dict | None:
+
+        self.metrics.start_processing()
 
         sample = self.replay_engine.next_sample()
 
         if sample is None:
             return None
 
+        message_payload = self.metrics.wrap(
+            data_key="sample",
+            data=sample,
+            extra=self._interval_metrics()
+        )
+
         message = MQTTMessageEnvelope.create(
             source="sensor-generator",
-            payload=sample
+            payload=message_payload
         )
         self.mqtt_service.publish(
             MQTTOPIC.SENSOR_RAW,
@@ -159,14 +180,23 @@ class SensorGeneratorService:
             sample.get("_stream", {}).get("run"),
         )
 
-        return sample
+        return message_payload
 
     def publish_status(self) -> dict | None:
 
+        self.metrics.start_processing()
+
         status = self.replay_engine.get_status()
+
+        message_payload = self.metrics.wrap(
+            data_key="status",
+            data=status,
+            extra=self._interval_metrics()
+        )
+
         message = MQTTMessageEnvelope.create(
             source="sensor-generator",
-            payload=status
+            payload=message_payload
         )
         self.mqtt_service.publish(
             MQTTOPIC.SENSOR_STATUS,
@@ -182,7 +212,7 @@ class SensorGeneratorService:
             status.get("loaded"),
         )
 
-        return status
+        return message_payload
 
     def run(self):
 
