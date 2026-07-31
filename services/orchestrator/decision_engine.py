@@ -53,27 +53,26 @@ class DecisionEngine:
                 anomaly_rate=0.0,
                 ratio=0.0,
                 batch=[],
-                fault=None,
+                sg_metrics={},
                 window_start=window_start,
                 window_end=window_end,
             )
 
         batch = []
         rates = []
-        faults = {}
+        sg_metrics = {}
 
         for event in events:
             payload = event.get("payload") or {}
             sample = payload.get("sample")
             if sample is not None:
                 batch.append(sample)
-            sg_metrics = payload.get("sg_metrics") or {}
-            interval = sg_metrics.get("stream_interval")
+            event_sg = payload.get("sg_metrics") or {}
+            if event_sg:
+                sg_metrics = event_sg
+            interval = event_sg.get("stream_interval")
             if interval:
                 rates.append(1.0 / float(interval))
-            fault = payload.get("fault")
-            if fault is not None:
-                faults[fault] = faults.get(fault, 0) + 1
 
         sensor_rate = (
             sum(rates) / len(rates)
@@ -88,7 +87,6 @@ class DecisionEngine:
             else 0.0
         )
         anomaly_rate = anomaly_count / self.window_seconds
-        fault = max(faults, key=faults.get) if faults else None
 
         if ratio >= self.high_ratio:
             decision = "anomaly"
@@ -105,7 +103,7 @@ class DecisionEngine:
             anomaly_rate=anomaly_rate,
             ratio=ratio,
             batch=batch,
-            fault=fault,
+            sg_metrics=sg_metrics,
             window_start=window_start,
             window_end=window_end,
         )
@@ -119,7 +117,7 @@ class DecisionEngine:
         anomaly_rate: float,
         ratio: float,
         batch: list[dict],
-        fault: int | None,
+        sg_metrics: dict,
         window_start: float,
         window_end: float,
     ) -> dict:
@@ -138,8 +136,8 @@ class DecisionEngine:
             "sensor_rate": round(sensor_rate, 4),
             "anomaly_rate": round(anomaly_rate, 4),
             "anomaly_ratio": round(ratio, 4),
-            "fault": fault,
             "batch": batch,
             "batch_size": len(batch),
+            "sg_metrics": sg_metrics,
             "reported": False,
         }

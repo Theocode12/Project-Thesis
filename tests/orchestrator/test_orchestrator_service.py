@@ -47,7 +47,6 @@ def make_decision(
     decision="anomaly",
     ratio=0.9,
     count=9,
-    fault=7,
     batch=None,
 ):
     return {
@@ -61,9 +60,9 @@ def make_decision(
         "sensor_rate": 1.0,
         "anomaly_rate": 0.9,
         "anomaly_ratio": ratio,
-        "fault": fault,
         "batch": batch or [{"X": 1.0}],
         "batch_size": 1,
+        "sg_metrics": {"stream_interval": 0.1},
         "reported": False,
     }
 

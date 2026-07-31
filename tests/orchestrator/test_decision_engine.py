@@ -119,23 +119,6 @@ class TestDecisionEngineEvaluate:
         assert decision["batch_size"] == 3
         assert all(s["faultNumber"] in (1, 2) for s in decision["batch"])
 
-    def test_fault_is_mode_of_window(self, engine):
-        for fault in (1, 1, 2, 3):
-            engine.add_anomaly(make_event(fault=fault))
-
-        decision = engine.evaluate()
-
-        assert decision["fault"] == 1
-
-    def test_fault_none_when_missing(self, engine):
-        event = make_event()
-        event["payload"].pop("fault")
-
-        engine.add_anomaly(event)
-        decision = engine.evaluate()
-
-        assert decision["fault"] is None
-
     def test_anomaly_rate_computed(self, engine):
         for _ in range(5):
             engine.add_anomaly(make_event(stream_interval=0.1))
@@ -143,3 +126,23 @@ class TestDecisionEngineEvaluate:
         decision = engine.evaluate()
 
         assert decision["anomaly_rate"] == pytest.approx(0.5)
+
+    def test_sg_metrics_carried_into_decision(self, engine):
+        engine.add_anomaly(make_event(stream_interval=0.1))
+
+        decision = engine.evaluate()
+
+        assert decision["sg_metrics"]["stream_interval"] == 0.1
+
+    def test_sg_metrics_uses_latest_event(self, engine):
+        engine.add_anomaly(make_event(stream_interval=0.1))
+        engine.add_anomaly(make_event(stream_interval=0.5))
+
+        decision = engine.evaluate()
+
+        assert decision["sg_metrics"]["stream_interval"] == 0.5
+
+    def test_sg_metrics_empty_for_empty_window(self, engine):
+        decision = engine.evaluate()
+
+        assert decision["sg_metrics"] == {}

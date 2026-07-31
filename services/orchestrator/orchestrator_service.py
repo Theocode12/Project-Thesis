@@ -126,8 +126,8 @@ class OrchestratorService:
                 meta={
                     "window_start": decision["window_start"],
                     "window_end": decision["window_end"],
-                    "fault": decision["fault"],
                     "anomaly_ratio": decision["anomaly_ratio"],
+                    "sg_metrics": decision["sg_metrics"],
                 },
             )
 
@@ -135,13 +135,12 @@ class OrchestratorService:
 
         log.info(
             "Decision %s | ratio=%.4f, anomalies=%d, total=%.1f, "
-            "rate=%.2f/s, fault=%s, reported=%s",
+            "rate=%.2f/s, reported=%s",
             decision["decision"],
             decision["anomaly_ratio"],
             decision["anomaly_count"],
             decision["total_samples"],
             decision["sensor_rate"],
-            decision["fault"],
             decision["reported"],
         )
 
@@ -157,8 +156,8 @@ class OrchestratorService:
             "sensor_rate": decision["sensor_rate"],
             "anomaly_rate": decision["anomaly_rate"],
             "anomaly_ratio": decision["anomaly_ratio"],
-            "fault": decision["fault"],
             "batch_size": decision["batch_size"],
+            "sg_metrics": decision["sg_metrics"],
             "reported": decision["reported"],
             "or_metrics": self.metrics.snapshot(),
         }
