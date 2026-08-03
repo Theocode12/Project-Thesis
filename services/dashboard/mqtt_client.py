@@ -12,6 +12,7 @@ log = logging.getLogger(__name__)
 SAMPLE_WINDOW_SECONDS = 60.0
 RATE_WINDOW_SECONDS = 5.0
 MAX_SAMPLES = 2000
+MAX_EVENTS = 80
 
 
 class DashboardDataStore:
@@ -25,6 +26,22 @@ class DashboardDataStore:
         self.last_message_at: Optional[float] = None
         self.last_topic: Optional[str] = None
         self.sample_rate: float = 0.0
+        self.message_count: int = 0
+        self.events: list[dict] = []
+        self.connected: bool = False
+        self._last_running: Optional[bool] = None
+        self._last_fault: Optional[int] = None
+        self._last_stream_interval: Optional[float] = None
+
+    def log_event(self, kind: str, text: str) -> None:
+        with self._lock:
+            self.events.insert(0, {
+                "kind": kind,
+                "text": text,
+                "ts": time.time(),
+            })
+            if len(self.events) > MAX_EVENTS:
+                self.events = self.events[:MAX_EVENTS]
 
     def handle_raw(self, envelope: dict) -> None:
         payload = envelope.get("payload", {})
@@ -39,6 +56,13 @@ class DashboardDataStore:
                     "run": sample.get("_stream", {}).get("run"),
                     "values": sample,
                 })
+                self.message_count += 1
+                if self.message_count == 1:
+                    self.events.insert(0, {
+                        "kind": "stream",
+                        "text": "Raw sensor stream established",
+                        "ts": now,
+                    })
                 self._trim_samples()
 
             if "sg_metrics" in payload:
@@ -56,6 +80,24 @@ class DashboardDataStore:
                     })
                     self._trim_processing_history()
 
+                stream_interval = (
+                    payload.get("sg_metrics") or {}
+                ).get("stream_interval")
+                if (
+                    stream_interval is not None
+                    and stream_interval != self._last_stream_interval
+                ):
+                    self._last_stream_interval = stream_interval
+                    self.events.insert(0, {
+                        "kind": "interval",
+                        "text": (
+                            f"Stream interval set to {stream_interval:g}s"
+                        ),
+                        "ts": now,
+                    })
+                    if len(self.events) > MAX_EVENTS:
+                        self.events = self.events[:MAX_EVENTS]
+
             self.last_message_at = now
             self.last_topic = MQTTOPIC.SENSOR_RAW.value
             self._update_rate()
@@ -69,6 +111,33 @@ class DashboardDataStore:
                 "status": payload.get("status"),
                 "received_at": now,
             }
+            status = payload.get("status") or {}
+
+            running = status.get("running")
+            if running is not None and running != self._last_running:
+                self._last_running = running
+                self.events.insert(0, {
+                    "kind": "state",
+                    "text": (
+                        "Generator started"
+                        if running else "Generator paused"
+                    ),
+                    "ts": now,
+                })
+                if len(self.events) > MAX_EVENTS:
+                    self.events = self.events[:MAX_EVENTS]
+
+            fault = status.get("fault")
+            if fault is not None and fault != self._last_fault:
+                self._last_fault = fault
+                self.events.insert(0, {
+                    "kind": "fault",
+                    "text": f"Fault scenario changed to {fault}",
+                    "ts": now,
+                })
+                if len(self.events) > MAX_EVENTS:
+                    self.events = self.events[:MAX_EVENTS]
+
             self.last_message_at = now
             self.last_topic = MQTTOPIC.SENSOR_STATUS.value
 
@@ -97,6 +166,22 @@ class DashboardDataStore:
     def recent_processing_times(self) -> list[dict]:
         with self._lock:
             return list(self.processing_history)
+
+    def recent_events(self) -> list[dict]:
+        with self._lock:
+            return list(self.events)
+
+    def get_message_count(self) -> int:
+        with self._lock:
+            return self.message_count
+
+    def is_connected(self) -> bool:
+        with self._lock:
+            return (
+                self.connected
+                and self.last_message_at is not None
+                and time.time() - self.last_message_at < 15.0
+            )
 
     def _trim_samples(self) -> None:
         cutoff = time.time() - SAMPLE_WINDOW_SECONDS
@@ -144,15 +229,25 @@ class DashboardClient:
             MQTTOPIC.SENSOR_STATUS,
             self.store.handle_status,
         )
-        self.mqtt_service.connect()
-        self.mqtt_service.start()
-        self._connected = True
-        log.info("Dashboard MQTT client started")
+        try:
+            self.mqtt_service.connect()
+            self.mqtt_service.start()
+            self._connected = True
+            self.store.connected = True
+            self.store.log_event("mqtt", "MQTT connected")
+            log.info("Dashboard MQTT client started")
+        except Exception:
+            self._connected = False
+            self.store.connected = False
+            self.store.log_event("mqtt", "MQTT connection failed")
+            log.exception("Dashboard MQTT client failed to connect")
 
     def stop(self) -> None:
         if self._connected:
             self.mqtt_service.stop()
             self._connected = False
+            self.store.connected = False
+            self.store.log_event("mqtt", "MQTT disconnected")
             log.info("Dashboard MQTT client stopped")
 
     def send_command(self, action: str, **params: Any) -> None:
@@ -165,15 +260,24 @@ class DashboardClient:
 
     def send_start(self) -> None:
         self.send_command("start")
+        self.store.log_event("state", "Start command sent")
 
     def send_stop(self) -> None:
         self.send_command("stop")
+        self.store.log_event("state", "Pause command sent")
 
     def send_reset(self) -> None:
         self.send_command("reset")
+        self.store.log_event("state", "Reset command sent")
+
+    def send_halt(self) -> None:
+        self.send_command("stop")
+        self.send_command("reset")
+        self.store.log_event("state", "Stop command sent (halted and rewound)")
 
     def send_set_fault(self, fault: int) -> None:
         self.send_command("set_fault", fault=fault)
+        self.store.log_event("fault", f"Fault scenario set to {fault}")
 
     def send_set_stream(self, fault: int, run: int) -> None:
         self.send_command(
@@ -181,12 +285,17 @@ class DashboardClient:
             fault=fault,
             run=run,
         )
+        self.store.log_event(
+            "fault",
+            f"Stream switched to fault_{fault} run_{run}",
+        )
 
     def send_set_stream_interval(self, interval: float) -> None:
         self.send_command(
             "set_stream_interval",
             interval=interval,
         )
+        self.store.log_event("interval", f"Stream interval set to {interval:g}s")
 
     def send_set_status_interval(self, interval: float) -> None:
         self.send_command(
