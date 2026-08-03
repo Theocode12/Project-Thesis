@@ -312,10 +312,10 @@ def _render_fault(client: DashboardClient) -> None:
 def _render_stream_interval(client: DashboardClient) -> None:
     interval = st.slider(
         "Stream interval (s)",
-        min_value=0.02,
-        max_value=2.0,
+        min_value=0.0,
+        max_value=15.0,
         value=0.1,
-        step=0.01,
+        step=0.1,
         key=K_INTERVAL,
     )
     if st.session_state.get("last_interval") != interval:
