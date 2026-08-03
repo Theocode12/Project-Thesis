@@ -132,3 +132,22 @@ services:
 
     ports:
       - "8501:8501"
+
+
+  caddy:
+    image: caddy:2
+    container_name: caddy
+
+    depends_on:
+      - dashboard
+
+    ports:
+      - "443:443"
+
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs/origin.pem:/etc/caddy/certs/origin.pem:ro
+      - ./certs/origin.key:/etc/caddy/certs/origin.key:ro
+
+    environment:
+      DOMAIN: thesis.devval.dev

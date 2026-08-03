@@ -260,15 +260,19 @@ def _now_str() -> str:
 def _render_controls(client: DashboardClient, state: dict) -> None:
     running = state["running"]
 
-    btn_row = st.columns(4)
-    if btn_row[0].button("Start", key="btn_start", type="primary", width="stretch"):
-        client.send_start()
-    if btn_row[1].button("Pause", key="btn_pause", width="stretch"):
-        client.send_stop()
-    if btn_row[2].button("Stop", key="btn_stop", width="stretch"):
-        client.send_halt()
-    if btn_row[3].button("Reset", key="btn_reset", width="stretch"):
-        client.send_reset()
+    row_a, row_b = st.columns(2)
+    with row_a:
+        col_a = st.columns(2)
+        if col_a[0].button("Start", key="btn_start", type="primary", width="stretch"):
+            client.send_start()
+        if col_a[1].button("Pause", key="btn_pause", width="stretch"):
+            client.send_stop()
+    with row_b:
+        col_b = st.columns(2)
+        if col_b[0].button("Stop", key="btn_stop", width="stretch"):
+            client.send_halt()
+        if col_b[1].button("Reset", key="btn_reset", width="stretch"):
+            client.send_reset()
 
     if running:
         st.caption("Stream active — samples flowing to sensor/raw.")

@@ -1,2 +1,3 @@
 datasets/raw/*
 *__pycache__*
+certs/

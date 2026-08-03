@@ -556,10 +556,17 @@ html, body, [data-testid="stAppViewContainer"],
     background: var(--edge-panel-alt);
     color: var(--edge-text);
     font-family: var(--edge-mono);
-    font-size: 0.72rem;
+    font-size: 0.68rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0.52rem 0.35rem;
+    height: 2.3rem;
+    min-height: 2.3rem;
     transition: background 0.12s ease, border-color 0.12s ease;
 }}
 

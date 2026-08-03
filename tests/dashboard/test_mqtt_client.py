@@ -110,6 +110,53 @@ class TestDashboardDataStore:
         assert store.get_status() is None
         assert store.get_metrics() is None
 
+    def test_message_count_increments(self):
+        store = DashboardDataStore()
+        store.handle_raw(make_sample_envelope())
+        store.handle_raw(make_sample_envelope())
+        store.handle_raw(make_sample_envelope())
+
+        assert store.get_message_count() == 3
+
+    def test_log_event_records_most_recent_first(self):
+        store = DashboardDataStore()
+        store.log_event("state", "Generator started")
+        store.log_event("fault", "Fault changed to 5")
+
+        events = store.recent_events()
+        assert events[0]["text"] == "Fault changed to 5"
+        assert events[1]["text"] == "Generator started"
+
+    def test_handle_status_logs_running_transitions(self):
+        store = DashboardDataStore()
+        store.handle_status(make_status_envelope(running=True))
+
+        texts = [e["text"] for e in store.recent_events()]
+        assert "Generator started" in texts
+
+        store.handle_status(
+            make_status_envelope(running=False, fault=0, position=50)
+        )
+        texts = [e["text"] for e in store.recent_events()]
+        assert texts[0] == "Generator paused"
+
+    def test_handle_status_logs_fault_change(self):
+        store = DashboardDataStore()
+        store.handle_status(make_status_envelope(fault=0))
+        store.handle_status(make_status_envelope(fault=7))
+
+        texts = [e["text"] for e in store.recent_events()]
+        assert texts[0] == "Fault scenario changed to 7"
+
+    def test_is_connected_requires_liveness(self):
+        store = DashboardDataStore()
+        store.connected = True
+        store.handle_raw(make_sample_envelope())
+        assert store.is_connected() is True
+
+        store.connected = False
+        assert store.is_connected() is False
+
 
 class TestDashboardClient:
 
@@ -216,3 +263,19 @@ class TestDashboardClient:
 
         mqtt_service.stop.assert_called_once()
         assert dashboard._connected is False
+
+    def test_start_marks_connected_and_logs_event(self, client):
+        dashboard, mqtt_service = client
+        dashboard.start()
+
+        assert dashboard.store.connected is True
+        assert dashboard.store.recent_events()[0]["text"] == "MQTT connected"
+
+    def test_commands_log_events(self, client):
+        dashboard, mqtt_service = client
+        dashboard.send_start()
+        dashboard.send_set_fault(3)
+
+        texts = [e["text"] for e in dashboard.store.recent_events()]
+        assert texts[0] == "Fault scenario set to 3"
+        assert "Start command sent" in texts

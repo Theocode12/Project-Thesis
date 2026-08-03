@@ -1,0 +1,4 @@
+{$DOMAIN} {
+    reverse_proxy dashboard:8501
+    tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
+}
