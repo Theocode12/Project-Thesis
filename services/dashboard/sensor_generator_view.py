@@ -3,6 +3,13 @@
 Renders the operational console for the TEP sensor generator: stream
 state, active fault scenario, publish volume, adjustable machine
 controls and a live, selectable variable chart backed by an event log.
+
+Interaction model: interactive widgets (buttons / selects / sliders /
+multiselects) live at the top level so they respond to clicks reliably.
+Only the read-only display (metrics, chart, timeline) is wrapped in a
+fragment that re-runs every 0.5s. Streamlit ``run_every`` fragments are
+unreliable hosts for interactive widgets, so they are deliberately kept
+out of them.
 """
 
 from datetime import UTC, datetime
@@ -324,35 +331,38 @@ def _render_stream_interval(client: DashboardClient) -> None:
     st.caption("Delay between published samples.")
 
 
-def _render_chart_pickers(client: DashboardClient) -> tuple[list[str], list[str]]:
+def _render_chart_pickers(client: DashboardClient) -> None:
     channels = client.store.channels()
     xmeas = sorted([ch for ch in channels if ch.startswith("xmeas_")])
     xmv = sorted([ch for ch in channels if ch.startswith("xmv_")])
 
     if not xmeas and not xmv:
         st.caption("Waiting for sensor data before variables can be plotted…")
-        return [], []
+        return
 
     cx, cm = st.columns(2)
     with cx:
-        sel_xmeas = st.multiselect(
+        st.multiselect(
             "Measured variables (xmeas)",
             xmeas,
             default=xmeas[:6],
             key=K_XMEAS,
         )
     with cm:
-        sel_xmv = st.multiselect(
+        st.multiselect(
             "Manipulated variables (xmv)",
             xmv,
             default=xmv[:3],
             key=K_XMV,
         )
-    return list(sel_xmeas), list(sel_xmv)
 
+
+# --------------------------------------------------------------------------- #
+# read-only display fragments (safe to re-run every 0.5s)
+# --------------------------------------------------------------------------- #
 
 @st.fragment(run_every=0.5)
-def render_sensor_generator(client: DashboardClient) -> None:
+def _render_live(client: DashboardClient) -> None:
     state = _read_state(client)
     state["label"], state["tone"] = _overall_state(state["running"])
 
@@ -392,46 +402,30 @@ def render_sensor_generator(client: DashboardClient) -> None:
 
     _render_metrics(client, state)
 
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
-    col_main, col_side = st.columns([2.15, 1], gap="large")
+@st.fragment(run_every=0.5)
+def _render_chart(client: DashboardClient) -> None:
+    xmeas = list(st.session_state.get(K_XMEAS, []))
+    xmv = list(st.session_state.get(K_XMV, []))
+    selected = xmeas + xmv
 
-    with col_main:
+    samples = client.store.recent_samples()
+    if samples and selected:
+        df = build_sensor_dataframe(samples, selected)
+        st.plotly_chart(
+            sensor_figure(df, xmeas, xmv),
+            width="stretch",
+            config={"displayModeBar": False, "scrollZoom": True},
+        )
+    else:
         st.markdown(
-            c.panel_open("Live Process Variables"),
+            '<div class="edge-events-empty">Waiting for sensor samples…</div>',
             unsafe_allow_html=True,
         )
-        xmeas, xmv = _render_chart_pickers(client)
-        selected = xmeas + xmv
-        samples = client.store.recent_samples()
-        if samples and selected:
-            df = build_sensor_dataframe(samples, selected)
-            st.plotly_chart(
-                sensor_figure(df, xmeas, xmv),
-                width="stretch",
-                config={"displayModeBar": False, "scrollZoom": True},
-            )
-        else:
-            st.markdown(
-                '<div class="edge-events-empty">Waiting for sensor samples…</div>',
-                unsafe_allow_html=True,
-            )
-        st.markdown(c.panel_close(), unsafe_allow_html=True)
 
-    with col_side:
-        st.markdown(
-            c.panel_open("Machine Controls"),
-            unsafe_allow_html=True,
-        )
-        _render_controls(client, state)
-        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-        _render_fault(client)
-        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-        _render_stream_interval(client)
-        st.markdown(c.panel_close(), unsafe_allow_html=True)
 
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
+@st.fragment(run_every=0.5)
+def _render_timeline(client: DashboardClient) -> None:
     st.markdown(
         c.panel_open("Event Timeline", "action log"),
         unsafe_allow_html=True,
@@ -441,3 +435,41 @@ def render_sensor_generator(client: DashboardClient) -> None:
         unsafe_allow_html=True,
     )
     st.markdown(c.panel_close(), unsafe_allow_html=True)
+
+
+# --------------------------------------------------------------------------- #
+# entry point
+# --------------------------------------------------------------------------- #
+
+def render_sensor_generator(client: DashboardClient) -> None:
+    _render_live(client)
+
+    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+    col_main, col_side = st.columns([2.15, 1], gap="large")
+
+    with col_main:
+        st.markdown(
+            c.panel_open("Live Process Variables"),
+            unsafe_allow_html=True,
+        )
+        _render_chart_pickers(client)
+        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+        _render_chart(client)
+        st.markdown(c.panel_close(), unsafe_allow_html=True)
+
+    with col_side:
+        st.markdown(
+            c.panel_open("Machine Controls"),
+            unsafe_allow_html=True,
+        )
+        _render_controls(client, _read_state(client))
+        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+        _render_fault(client)
+        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+        _render_stream_interval(client)
+        st.markdown(c.panel_close(), unsafe_allow_html=True)
+
+    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+    _render_timeline(client)

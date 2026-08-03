@@ -16,9 +16,9 @@ theme.inject()
 
 def ensure_client() -> DashboardClient:
     if "dashboard_client" not in st.session_state:
-        st.session_state.setdefault("last_fault", None)
+        st.session_state.setdefault("last_fault", 0)
         st.session_state.setdefault("last_run", None)
-        st.session_state.setdefault("last_interval", None)
+        st.session_state.setdefault("last_interval", 0.1)
 
         client = DashboardClient()
         client.start()
