@@ -14,17 +14,19 @@ st.set_page_config(
 theme.inject()
 
 
+@st.cache_resource(show_spinner=False)
+def _dashboard_client() -> DashboardClient:
+    client = DashboardClient()
+    client.start()
+    return client
+
+
 def ensure_client() -> DashboardClient:
-    if "dashboard_client" not in st.session_state:
-        st.session_state.setdefault("last_fault", 0)
-        st.session_state.setdefault("last_run", None)
-        st.session_state.setdefault("last_interval", 0.1)
+    st.session_state.setdefault("last_fault", 0)
+    st.session_state.setdefault("last_run", None)
+    st.session_state.setdefault("last_interval", 0.1)
 
-        client = DashboardClient()
-        client.start()
-        st.session_state["dashboard_client"] = client
-
-    return st.session_state["dashboard_client"]
+    return _dashboard_client()
 
 
 def service_rail() -> str:
