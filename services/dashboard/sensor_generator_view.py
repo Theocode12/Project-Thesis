@@ -56,51 +56,6 @@ def _read_state(client: DashboardClient) -> dict:
     }
 
 
-def _live_config(
-    client: DashboardClient,
-) -> tuple[int | None, int | None, float | None]:
-    status = (client.store.get_status() or {}).get("status") or {}
-    sg = (client.store.get_metrics() or {}).get("sg_metrics") or {}
-    fault = status.get("fault")
-    run = status.get("run")
-    if fault is None or run is None:
-        samples = client.store.recent_samples()
-        if samples:
-            stream = samples[-1].get("values", {}).get("_stream") or {}
-            if fault is None:
-                fault = stream.get("fault")
-            if run is None:
-                run = stream.get("run")
-    return fault, run, sg.get("stream_interval")
-
-
-def _sync_live_controls(client: DashboardClient) -> bool:
-    fault, run, interval = _live_config(client)
-    changed = False
-
-    if not st.session_state.get("vsg_touched_fault") and fault is not None:
-        if st.session_state.get(K_FAULT) != fault:
-            st.session_state[K_FAULT] = fault
-            st.session_state["last_fault"] = fault
-            changed = True
-
-    if not st.session_state.get("vsg_touched_run") and run is not None:
-        run_str = str(run)
-        if st.session_state.get(K_RUN) != run_str:
-            st.session_state[K_RUN] = run_str
-            st.session_state["last_run"] = run
-            changed = True
-
-    if not st.session_state.get("vsg_touched_interval") and interval is not None:
-        interval = round(min(15.0, max(0.0, interval)), 1)
-        if st.session_state.get(K_INTERVAL) != interval:
-            st.session_state[K_INTERVAL] = interval
-            st.session_state["last_interval"] = interval
-            changed = True
-
-    return changed
-
-
 def _overall_state(running: bool | None) -> tuple[str, str]:
     if running is True:
         return "Running", "run"
@@ -341,7 +296,6 @@ def _render_fault(client: DashboardClient) -> None:
         help="Select a TEP fault scenario to stream.",
     )
     if st.session_state.get("last_fault") != selected_fault:
-        st.session_state["vsg_touched_fault"] = True
         client.send_set_fault(selected_fault)
         st.session_state["last_fault"] = selected_fault
         st.session_state["last_run"] = None
@@ -356,12 +310,9 @@ def _render_fault(client: DashboardClient) -> None:
     if selected_run != "Auto (random)":
         pinned_run = int(selected_run)
         if st.session_state.get("last_run") != pinned_run:
-            st.session_state["vsg_touched_run"] = True
             client.send_set_stream(selected_fault, pinned_run)
             st.session_state["last_run"] = pinned_run
     else:
-        if st.session_state.get("last_run") is not None:
-            st.session_state["vsg_touched_run"] = True
         st.session_state["last_run"] = None
 
 
@@ -375,7 +326,6 @@ def _render_stream_interval(client: DashboardClient) -> None:
         key=K_INTERVAL,
     )
     if st.session_state.get("last_interval") != interval:
-        st.session_state["vsg_touched_interval"] = True
         client.send_set_stream_interval(interval)
         st.session_state["last_interval"] = interval
     st.caption("Delay between published samples.")
@@ -413,9 +363,6 @@ def _render_chart_pickers(client: DashboardClient) -> None:
 
 @st.fragment(run_every=0.5)
 def _render_live(client: DashboardClient) -> None:
-    if _sync_live_controls(client):
-        st.rerun()
-
     state = _read_state(client)
     state["label"], state["tone"] = _overall_state(state["running"])
 
@@ -495,8 +442,6 @@ def _render_timeline(client: DashboardClient) -> None:
 # --------------------------------------------------------------------------- #
 
 def render_sensor_generator(client: DashboardClient) -> None:
-    _sync_live_controls(client)
-
     _render_live(client)
 
     st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
