@@ -18,6 +18,20 @@ def _kind(kind: str) -> str:
     return kind if kind in STATUS_KINDS else "info"
 
 
+def format_count(value: int) -> str:
+    if value < 1_000:
+        return f"{value:,}"
+    for divisor, suffix in (
+        (1_000_000_000, "B"),
+        (1_000_000, "M"),
+        (1_000, "K"),
+    ):
+        if value >= divisor:
+            scaled = value / divisor
+            return f"{scaled:.1f}".rstrip("0").rstrip(".") + suffix
+    return f"{value:,}"
+
+
 # --------------------------------------------------------------------------- #
 # primitives
 # --------------------------------------------------------------------------- #

@@ -169,6 +169,15 @@ class TestSensorGeneratorServiceHandleCommand:
 
         assert service.STATUS_INTERVAL_SECONDS == 10.0
 
+    def test_command_publishes_status_immediately(
+        self, service, mock_mqtt_service
+    ):
+        service.handle_command({"action": "start"})
+
+        mock_mqtt_service.publish.assert_called_once()
+        topic, _ = mock_mqtt_service.publish.call_args[0]
+        assert topic == MQTTOPIC.SENSOR_STATUS
+
 
 class TestSensorGeneratorServicePublish:
 

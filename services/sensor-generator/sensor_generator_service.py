@@ -90,6 +90,14 @@ class SensorGeneratorService:
         log.info("Handling command: %s", action)
         handler(payload)
 
+        try:
+            self.publish_status()
+        except Exception:
+            log.exception(
+                "Failed to publish status after command: %s",
+                action,
+            )
+
     def _cmd_start(
         self,
         payload: dict

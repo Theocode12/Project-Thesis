@@ -4,12 +4,12 @@ Renders the operational console for the TEP sensor generator: stream
 state, active fault scenario, publish volume, adjustable machine
 controls and a live, selectable variable chart backed by an event log.
 
-Interaction model: interactive widgets (buttons / selects / sliders /
+Interaction model: interactive widgets (selects / sliders /
 multiselects) live at the top level so they respond to clicks reliably.
-Only the read-only display (metrics, chart, timeline) is wrapped in a
-fragment that re-runs every 0.5s. Streamlit ``run_every`` fragments are
-unreliable hosts for interactive widgets, so they are deliberately kept
-out of them.
+The read-only display (metrics, chart, timeline) is wrapped in fragments
+that re-run every 0.5s. Only the state-driven Start/Stop buttons run
+inside a 1s fragment so their active styling tracks the live MQTT status;
+the Reset button stays static at the top level since it never re-styles.
 """
 
 from datetime import UTC, datetime
@@ -52,6 +52,7 @@ def _read_state(client: DashboardClient) -> dict:
         "running": status.get("running"),
         "fault": status.get("fault"),
         "run": status.get("run"),
+        "position": status.get("position"),
         "loaded": status.get("loaded", False),
     }
 
@@ -169,8 +170,9 @@ def _render_metrics(client: DashboardClient, state: dict) -> None:
     fault_note = (
         f"fault_{fault} · run {run}" if fault is not None else "no dataset loaded"
     )
+    position = state["position"]
     dataset_note = (
-        f"fault_{fault} · run_{run}"
+        f"fault_{fault} · run_{run} · row {position}"
         if fault is not None and run is not None
         else "awaiting stream"
     )
@@ -209,7 +211,7 @@ def _render_metrics(client: DashboardClient, state: dict) -> None:
     row1[3].markdown(
         c.tile(
             "Messages published",
-            f"{store.get_message_count():,}",
+            c.format_count(store.get_message_count()),
             note="published to sensor/raw",
             tone="accent",
             icon="Σ",
@@ -264,27 +266,35 @@ def _now_str() -> str:
     return datetime.now(UTC).strftime("%H:%M:%S")
 
 
-def _render_controls(client: DashboardClient, state: dict) -> None:
-    running = state["running"]
+@st.fragment(run_every=1.0)
+def _render_controls(client: DashboardClient) -> None:
+    running = _read_state(client)["running"]
 
-    row_a, row_b = st.columns(2)
-    with row_a:
-        col_a = st.columns(2)
-        if col_a[0].button("Start", key="btn_start", type="primary", width="stretch"):
-            client.send_start()
-        if col_a[1].button("Pause", key="btn_pause", width="stretch"):
-            client.send_stop()
-    with row_b:
-        col_b = st.columns(2)
-        if col_b[0].button("Stop", key="btn_stop", width="stretch"):
-            client.send_halt()
-        if col_b[1].button("Reset", key="btn_reset", width="stretch"):
-            client.send_reset()
+    col_a = st.columns(2)
+    if col_a[0].button(
+        "Start",
+        key="btn_start",
+        type="primary" if running is True else "secondary",
+        width="stretch",
+    ):
+        client.send_start()
+    if col_a[1].button(
+        "Stop",
+        key="btn_stop",
+        type="primary" if running is not True else "secondary",
+        width="stretch",
+    ):
+        client.send_halt()
 
     if running:
         st.caption("Stream active — samples flowing to sensor/raw.")
     else:
         st.caption("Stream idle — awaiting start or dataset selection.")
+
+
+def _render_reset(client: DashboardClient) -> None:
+    if st.button("Reset", key="btn_reset", width="stretch"):
+        client.send_reset()
 
 
 def _render_fault(client: DashboardClient) -> None:
@@ -463,7 +473,8 @@ def render_sensor_generator(client: DashboardClient) -> None:
             c.panel_open("Machine Controls"),
             unsafe_allow_html=True,
         )
-        _render_controls(client, _read_state(client))
+        _render_controls(client)
+        _render_reset(client)
         st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
         _render_fault(client)
         st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)

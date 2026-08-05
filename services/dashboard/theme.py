@@ -354,84 +354,7 @@ html, body, [data-testid="stAppViewContainer"],
     padding: 0.9rem;
 }}
 
-/* ---------- machine controls ---------- */
-
-.edge-controls {{
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}}
-
-.edge-control-group {{
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-}}
-
-.edge-control-label {{
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--edge-text-3);
-}}
-
-.edge-btn-row {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
-}}
-
-.edge-btn {{
-    appearance: none;
-    border-radius: 4px;
-    border: 1px solid var(--edge-border-strong);
-    background: var(--edge-panel-alt);
-    color: var(--edge-text);
-    font-family: var(--edge-mono);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    padding: 0.55rem 0.6rem;
-    cursor: pointer;
-    transition: background 0.12s ease, border-color 0.12s ease;
-}}
-
-.edge-btn:hover {{
-    border-color: var(--edge-text-2);
-}}
-
-.edge-btn:disabled {{
-    opacity: 0.35;
-    cursor: not-allowed;
-}}
-
-.edge-btn--start {{
-    color: var(--edge-run);
-    border-color: var(--edge-run);
-    background: rgba(46, 194, 126, 0.06);
-}}
-.edge-btn--start:hover {{ background: rgba(46, 194, 126, 0.14); }}
-
-.edge-btn--pause {{
-    color: var(--edge-pause);
-    border-color: var(--edge-pause);
-    background: rgba(245, 166, 35, 0.06);
-}}
-.edge-btn--pause:hover {{ background: rgba(245, 166, 35, 0.14); }}
-
-.edge-btn--stop {{
-    color: var(--edge-stop);
-    border-color: var(--edge-stop);
-    background: rgba(239, 78, 78, 0.06);
-}}
-.edge-btn--stop:hover {{ background: rgba(239, 78, 78, 0.14); }}
-
-.edge-btn--danger {{
-    color: var(--edge-stop);
-    border-color: var(--edge-border-strong);
-}}
+/* ---------- misc ---------- */
 
 .edge-divider {{
     height: 1px;
@@ -571,6 +494,12 @@ html, body, [data-testid="stAppViewContainer"],
 }}
 
 [data-testid="stButton"] button:hover {{
+    border-color: var(--edge-accent);
+    color: var(--edge-accent);
+}}
+
+[data-testid="stButton"] button:active {{
+    background: rgba(255, 176, 32, 0.25);
     border-color: var(--edge-accent);
     color: var(--edge-accent);
 }}
