@@ -31,21 +31,21 @@ services:
       MQTT_PORT: 1883
 
 
-  # edge-detector:
-  #   build:
-  #     context: .
-  #     dockerfile: services/edge-detector/Dockerfile
+  edge-detector:
+    build:
+      context: .
+      dockerfile: services/edge-detector/Dockerfile
 
-  #   container_name: edge-detector
+    container_name: edge-detector
 
-  #   depends_on:
-  #     - mqtt-broker
+    depends_on:
+      - mqtt-broker
 
-  #   # restart: unless-stopped
+    # restart: unless-stopped
 
-  #   environment:
-  #     MQTT_HOST: mqtt-broker
-  #     MQTT_PORT: 1883
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
 
 
   # data-management:
@@ -73,26 +73,26 @@ services:
   #     CACHE_CLEANUP_MAX_AGE: 3600
 
 
-  # orchestrator:
-  #   build:
-  #     context: .
-  #     dockerfile: services/orchestrator/Dockerfile
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
 
-  #   container_name: orchestrator
+    container_name: orchestrator
 
-  #   depends_on:
-  #     - mqtt-broker
+    depends_on:
+      - mqtt-broker
 
-  #   # restart: unless-stopped
+    # restart: unless-stopped
 
-  #   environment:
-  #     MQTT_HOST: mqtt-broker
-  #     MQTT_PORT: 1883
-  #     EVAL_WINDOW_SECONDS: 10
-  #     ANOMALY_HIGH_RATIO: 0.5
-  #     ANOMALY_LOW_RATIO: 0.1
-  #     FALLBACK_STREAM_INTERVAL: 0.1
-  #     DIAGNOSIS_ENDPOINT: "http://classifier:8000/diagnose"
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
+      EVAL_WINDOW_SECONDS: 10
+      ANOMALY_HIGH_RATIO: 0.5
+      ANOMALY_LOW_RATIO: 0.1
+      FALLBACK_STREAM_INTERVAL: 0.1
+      DIAGNOSIS_ENDPOINT: "http://localhost:8000/diagnose"
 
 
   # classifier:
