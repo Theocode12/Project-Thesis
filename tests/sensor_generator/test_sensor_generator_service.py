@@ -46,13 +46,13 @@ class TestSensorGeneratorServiceInit:
 
     def test_action_map_has_all_actions(self, service):
         expected = {
-            "start",
-            "stop",
-            "reset",
-            "set_fault",
-            "set_stream",
-            "set_stream_interval",
-            "set_status_interval",
+            "sg_start",
+            "sg_stop",
+            "sg_reset",
+            "sg_set_fault",
+            "sg_set_stream",
+            "sg_set_stream_interval",
+            "sg_set_status_interval",
         }
         assert set(service._action_map.keys()) == expected
 
@@ -117,23 +117,30 @@ class TestSensorGeneratorServiceHandleCommand:
         mock_replay_engine.reset.assert_not_called()
 
     def test_start_action(self, service, mock_replay_engine):
-        service.handle_command({"action": "start"})
+        service.handle_command({"action": "sg_start"})
 
         mock_replay_engine.start.assert_called_once()
 
+    def test_plain_start_action_is_ignored(
+        self, service, mock_replay_engine
+    ):
+        service.handle_command({"action": "start"})
+
+        mock_replay_engine.start.assert_not_called()
+
     def test_stop_action(self, service, mock_replay_engine):
-        service.handle_command({"action": "stop"})
+        service.handle_command({"action": "sg_stop"})
 
         mock_replay_engine.stop.assert_called_once()
 
     def test_reset_action(self, service, mock_replay_engine):
-        service.handle_command({"action": "reset"})
+        service.handle_command({"action": "sg_reset"})
 
         mock_replay_engine.reset.assert_called_once()
 
     def test_set_fault_action(self, service, mock_replay_engine):
         service.handle_command(
-            {"action": "set_fault", "fault": 3}
+            {"action": "sg_set_fault", "fault": 3}
         )
 
         mock_replay_engine.set_fault.assert_called_once_with(
@@ -142,7 +149,7 @@ class TestSensorGeneratorServiceHandleCommand:
 
     def test_set_stream_action(self, service, mock_replay_engine):
         service.handle_command(
-            {"action": "set_stream", "fault": 2, "run": 7}
+            {"action": "sg_set_stream", "fault": 2, "run": 7}
         )
 
         mock_replay_engine.set_stream.assert_called_once_with(
@@ -152,7 +159,7 @@ class TestSensorGeneratorServiceHandleCommand:
     def test_set_stream_interval_action(self, service):
         service.handle_command(
             {
-                "action": "set_stream_interval",
+                "action": "sg_set_stream_interval",
                 "interval": "0.5",
             }
         )
@@ -162,7 +169,7 @@ class TestSensorGeneratorServiceHandleCommand:
     def test_set_status_interval_action(self, service):
         service.handle_command(
             {
-                "action": "set_status_interval",
+                "action": "sg_set_status_interval",
                 "interval": "10",
             }
         )
@@ -172,7 +179,7 @@ class TestSensorGeneratorServiceHandleCommand:
     def test_command_publishes_status_immediately(
         self, service, mock_mqtt_service
     ):
-        service.handle_command({"action": "start"})
+        service.handle_command({"action": "sg_start"})
 
         mock_mqtt_service.publish.assert_called_once()
         topic, _ = mock_mqtt_service.publish.call_args[0]
@@ -213,13 +220,13 @@ class TestSensorGeneratorServicePublish:
     ):
         service.handle_command(
             {
-                "action": "set_stream_interval",
+                "action": "sg_set_stream_interval",
                 "interval": "0.5",
             }
         )
         service.handle_command(
             {
-                "action": "set_status_interval",
+                "action": "sg_set_status_interval",
                 "interval": "10",
             }
         )

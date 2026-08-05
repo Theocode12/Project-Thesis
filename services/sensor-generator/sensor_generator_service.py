@@ -36,13 +36,13 @@ class SensorGeneratorService:
             getenv("STATUS_INTERVAL", "5")
         )
         self._action_map = {
-            "start": self._cmd_start,
-            "stop": self._cmd_stop,
-            "reset": self._cmd_reset,
-            "set_fault": self._cmd_set_fault,
-            "set_stream": self._cmd_set_stream,
-            "set_stream_interval": self._cmd_set_stream_interval,
-            "set_status_interval": self._cmd_set_status_interval,
+            "sg_start": self._cmd_start,
+            "sg_stop": self._cmd_stop,
+            "sg_reset": self._cmd_reset,
+            "sg_set_fault": self._cmd_set_fault,
+            "sg_set_stream": self._cmd_set_stream,
+            "sg_set_stream_interval": self._cmd_set_stream_interval,
+            "sg_set_status_interval": self._cmd_set_status_interval,
         }
 
     def start(self):

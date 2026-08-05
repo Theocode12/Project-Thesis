@@ -235,11 +235,11 @@ class TestDashboardClient:
 
     def test_send_command_builds_payload(self, client):
         dashboard, mqtt_service = client
-        dashboard.send_command("set_fault", fault=7)
+        dashboard.send_command("sg_set_fault", fault=7)
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "set_fault", "fault": 7},
+            {"action": "sg_set_fault", "fault": 7},
         )
 
 
@@ -258,7 +258,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "start"},
+            {"action": "sg_start"},
         )
 
     def test_send_stop(self, controller):
@@ -267,7 +267,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "stop"},
+            {"action": "sg_stop"},
         )
 
     def test_send_reset(self, controller):
@@ -276,7 +276,27 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "reset"},
+            {"action": "sg_reset"},
+        )
+
+    def test_send_halt(self, controller):
+        command, mqtt_service, _ = controller
+        command.send_halt()
+
+        assert mqtt_service.publish.call_count == 2
+        assert mqtt_service.publish.call_args_list[0] == (
+            (
+                MQTTOPIC.SYSTEM_CONTROL,
+                {"action": "sg_stop"},
+            ),
+            {},
+        )
+        assert mqtt_service.publish.call_args_list[1] == (
+            (
+                MQTTOPIC.SYSTEM_CONTROL,
+                {"action": "sg_reset"},
+            ),
+            {},
         )
 
     def test_send_set_fault(self, controller):
@@ -285,7 +305,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "set_fault", "fault": 3},
+            {"action": "sg_set_fault", "fault": 3},
         )
 
     def test_send_set_stream(self, controller):
@@ -294,7 +314,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "set_stream", "fault": 2, "run": 7},
+            {"action": "sg_set_stream", "fault": 2, "run": 7},
         )
 
     def test_send_set_stream_interval(self, controller):
@@ -303,7 +323,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "set_stream_interval", "interval": 0.5},
+            {"action": "sg_set_stream_interval", "interval": 0.5},
         )
 
     def test_send_set_status_interval(self, controller):
@@ -312,7 +332,7 @@ class TestSensorGeneratorController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "set_status_interval", "interval": 10},
+            {"action": "sg_set_status_interval", "interval": 10},
         )
 
     def test_commands_log_actions(self, controller):

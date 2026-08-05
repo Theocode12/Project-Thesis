@@ -176,31 +176,31 @@ class SensorGeneratorController:
         self.client = client
 
     def send_start(self) -> None:
-        self.client.send_command("start")
+        self.client.send_command("sg_start")
         self.store.action_log.log("state", "Start command sent")
 
     def send_stop(self) -> None:
-        self.client.send_command("stop")
+        self.client.send_command("sg_stop")
         self.store.action_log.log("state", "Pause command sent")
 
     def send_reset(self) -> None:
-        self.client.send_command("reset")
+        self.client.send_command("sg_reset")
         self.store.action_log.log("state", "Reset command sent")
 
     def send_halt(self) -> None:
-        self.client.send_command("stop")
-        self.client.send_command("reset")
+        self.client.send_command("sg_stop")
+        self.client.send_command("sg_reset")
         self.store.action_log.log(
             "state", "Stop command sent (halted and rewound)"
         )
 
     def send_set_fault(self, fault: int) -> None:
-        self.client.send_command("set_fault", fault=fault)
+        self.client.send_command("sg_set_fault", fault=fault)
         self.store.action_log.log("fault", f"Fault scenario set to {fault}")
 
     def send_set_stream(self, fault: int, run: int) -> None:
         self.client.send_command(
-            "set_stream",
+            "sg_set_stream",
             fault=fault,
             run=run,
         )
@@ -211,7 +211,7 @@ class SensorGeneratorController:
 
     def send_set_stream_interval(self, interval: float) -> None:
         self.client.send_command(
-            "set_stream_interval",
+            "sg_set_stream_interval",
             interval=interval,
         )
         self.store.action_log.log(
@@ -220,6 +220,6 @@ class SensorGeneratorController:
 
     def send_set_status_interval(self, interval: float) -> None:
         self.client.send_command(
-            "set_status_interval",
+            "sg_set_status_interval",
             interval=interval,
         )
