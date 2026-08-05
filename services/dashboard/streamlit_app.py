@@ -1,8 +1,12 @@
 import streamlit as st
 
 import theme
+from detection_store import DetectionStore
+from detection_view import DetectionView
 from mqtt_client import DashboardClient
-from sensor_generator_view import render_sensor_generator
+from sensor_store import SensorGeneratorStore
+from sensor_generator_view import SensorGeneratorView
+from shared.mqtt_topics import MQTTOPIC
 
 st.set_page_config(
     page_title="Edge–Cloud Orchestration · Console",
@@ -13,20 +17,33 @@ st.set_page_config(
 
 theme.inject()
 
+# Each service view is composed from its own data store + a shared client.
+VIEWS = {
+    "Sensor Generator": (SensorGeneratorView, "sensor_store"),
+    "Edge Detection": (DetectionView, "detection_store"),
+}
+
+TOPIC_CAPTION = "sensor/raw · sensor/status · anomaly/detected"
+
 
 @st.cache_resource(show_spinner=False)
-def _dashboard_client() -> DashboardClient:
+def _resources() -> dict:
     client = DashboardClient()
+
+    sensor_store = SensorGeneratorStore()
+    detection_store = DetectionStore()
+
+    client.subscribe(MQTTOPIC.SENSOR_RAW, sensor_store.handle_raw)
+    client.subscribe(MQTTOPIC.SENSOR_STATUS, sensor_store.handle_status)
+    client.subscribe(MQTTOPIC.ANOMALY_DETECTED, detection_store.handle_anomaly)
+
     client.start()
-    return client
 
-
-def ensure_client() -> DashboardClient:
-    st.session_state.setdefault("last_fault", 0)
-    st.session_state.setdefault("last_run", None)
-    st.session_state.setdefault("last_interval", 0.1)
-
-    return _dashboard_client()
+    return {
+        "client": client,
+        "sensor_store": sensor_store,
+        "detection_store": detection_store,
+    }
 
 
 def service_rail() -> str:
@@ -40,22 +57,23 @@ def service_rail() -> str:
 
         service = st.radio(
             "Service",
-            ["Sensor Generator"],
+            list(VIEWS),
             key="service_rail",
         )
 
         st.divider()
-        st.caption("sensor/raw · sensor/status · system/control")
+        st.caption(TOPIC_CAPTION)
         st.caption("Data source: Tennessee Eastman Process")
     return service
 
 
 def main() -> None:
     service = service_rail()
-    client = ensure_client()
+    resources = _resources()
 
-    if service == "Sensor Generator":
-        render_sensor_generator(client)
+    view_cls, store_key = VIEWS[service]
+    view = view_cls(store=resources[store_key], client=resources["client"])
+    view.render()
 
 
 main()

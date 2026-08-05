@@ -10,6 +10,10 @@ The read-only display (metrics, chart, timeline) is wrapped in fragments
 that re-run every 0.5s. Only the state-driven Start/Stop buttons run
 inside a 1s fragment so their active styling tracks the live MQTT status;
 the Reset button stays static at the top level since it never re-styles.
+
+The view receives its store and client through the constructor
+(dependency injection) and builds its own controller, keeping the
+page's state and action log self-contained.
 """
 
 from datetime import UTC, datetime
@@ -20,6 +24,7 @@ import streamlit as st
 
 import components as c
 from mqtt_client import DashboardClient
+from sensor_store import SensorGeneratorController, SensorGeneratorStore
 from theme import MONO
 
 FAULTS = list(range(21))
@@ -46,8 +51,12 @@ def _fmt_time(ts: float | None) -> str:
     return datetime.fromtimestamp(ts, UTC).strftime("%H:%M:%S")
 
 
-def _read_state(client: DashboardClient) -> dict:
-    status = (client.store.get_status() or {}).get("status") or {}
+def _now_str() -> str:
+    return datetime.now(UTC).strftime("%H:%M:%S")
+
+
+def _read_state(store: SensorGeneratorStore) -> dict:
+    status = (store.get_status() or {}).get("status") or {}
     return {
         "running": status.get("running"),
         "fault": status.get("fault"),
@@ -148,339 +157,341 @@ def sensor_figure(
     return fig
 
 
-def _render_metrics(client: DashboardClient, state: dict) -> None:
-    store = client.store
-    metrics = store.get_metrics() or {}
-    sg = metrics.get("sg_metrics") or {}
+class SensorGeneratorView:
 
-    running = state["running"]
-    fault = state["fault"]
-    run = state["run"]
-    connected = store.is_connected()
-    rate = store.sample_rate
-    interval = sg.get("stream_interval")
-    last_at = store.last_message_at
+    def __init__(
+        self,
+        store: SensorGeneratorStore,
+        client: DashboardClient,
+    ) -> None:
+        self.store = store
+        self.client = client
+        self.controller = SensorGeneratorController(store, client)
 
-    run_tone = (
-        "run" if running is True
-        else ("pause" if running is False else "info")
-    )
+    def _render_metrics(self, state: dict) -> None:
+        store = self.store
+        metrics = store.get_metrics() or {}
+        sg = metrics.get("sg_metrics") or {}
 
-    fault_txt = f"F{fault}" if fault is not None else "—"
-    fault_note = (
-        f"fault_{fault} · run {run}" if fault is not None else "no dataset loaded"
-    )
-    position = state["position"]
-    dataset_note = (
-        f"fault_{fault} · run_{run} · row {position}"
-        if fault is not None and run is not None
-        else "awaiting stream"
-    )
+        running = state["running"]
+        fault = state["fault"]
+        run = state["run"]
+        connected = self.client.is_connected()
+        rate = store.sample_rate
+        interval = sg.get("stream_interval")
+        last_at = self.client.last_message_at
 
-    row1 = st.columns(4)
-    row1[0].markdown(
-        c.tile(
-            "Generator state",
-            str(state["label"]).upper(),
-            note="streaming" if running else "idle",
-            tone=run_tone,
-            icon="◎",
-        ),
-        unsafe_allow_html=True,
-    )
-    row1[1].markdown(
-        c.tile(
-            "Fault scenario",
-            fault_txt.upper(),
-            note=fault_note,
-            tone=run_tone if fault is not None else "",
-            icon="⚠",
-        ),
-        unsafe_allow_html=True,
-    )
-    row1[2].markdown(
-        c.tile(
-            "Publish rate",
-            f"{rate:.1f}<small>msg/s</small>",
-            note="last 5s window",
-            tone="info",
-            icon="≈",
-        ),
-        unsafe_allow_html=True,
-    )
-    row1[3].markdown(
-        c.tile(
-            "Messages published",
-            c.format_count(store.get_message_count()),
-            note="published to sensor/raw",
-            tone="accent",
-            icon="Σ",
-        ),
-        unsafe_allow_html=True,
-    )
-
-    row2 = st.columns(4)
-    row2[0].markdown(
-        c.tile(
-            "Sampling interval",
-            f"{interval:.2f}<small>s</small>" if interval is not None else "—",
-            note="between samples",
-            tone="info",
-            icon="▮",
-        ),
-        unsafe_allow_html=True,
-    )
-    row2[1].markdown(
-        c.tile(
-            "MQTT link",
-            "CONNECTED" if connected else "OFFLINE",
-            note="sensor/raw · sensor/status",
-            tone="run" if connected else "stop",
-            icon="↔",
-        ),
-        unsafe_allow_html=True,
-    )
-    row2[2].markdown(
-        c.tile(
-            "Dataset",
-            DATASET_NAME,
-            note=dataset_note,
-            tone="info",
-            icon="◇",
-        ),
-        unsafe_allow_html=True,
-    )
-    row2[3].markdown(
-        c.tile(
-            "Last published",
-            _fmt_time(last_at),
-            note=_now_str(),
-            tone="",
-            icon="◷",
-        ),
-        unsafe_allow_html=True,
-    )
-
-
-def _now_str() -> str:
-    return datetime.now(UTC).strftime("%H:%M:%S")
-
-
-@st.fragment(run_every=1.0)
-def _render_controls(client: DashboardClient) -> None:
-    running = _read_state(client)["running"]
-
-    col_a = st.columns(2)
-    if col_a[0].button(
-        "Start",
-        key="btn_start",
-        type="primary" if running is True else "secondary",
-        width="stretch",
-    ):
-        client.send_start()
-    if col_a[1].button(
-        "Stop",
-        key="btn_stop",
-        type="primary" if running is not True else "secondary",
-        width="stretch",
-    ):
-        client.send_halt()
-
-    if running:
-        st.caption("Stream active — samples flowing to sensor/raw.")
-    else:
-        st.caption("Stream idle — awaiting start or dataset selection.")
-
-
-def _render_reset(client: DashboardClient) -> None:
-    if st.button("Reset", key="btn_reset", width="stretch"):
-        client.send_reset()
-
-
-def _render_fault(client: DashboardClient) -> None:
-    selected_fault = st.selectbox(
-        "Fault scenario",
-        FAULTS,
-        index=0,
-        key=K_FAULT,
-        help="Select a TEP fault scenario to stream.",
-    )
-    if st.session_state.get("last_fault") != selected_fault:
-        client.send_set_fault(selected_fault)
-        st.session_state["last_fault"] = selected_fault
-        st.session_state["last_run"] = None
-
-    run_options = ["Auto (random)"] + [str(r) for r in RUNS]
-    selected_run = st.selectbox(
-        "Run",
-        run_options,
-        key=K_RUN,
-        help="Pin a specific simulation run, or let the generator pick randomly.",
-    )
-    if selected_run != "Auto (random)":
-        pinned_run = int(selected_run)
-        if st.session_state.get("last_run") != pinned_run:
-            client.send_set_stream(selected_fault, pinned_run)
-            st.session_state["last_run"] = pinned_run
-    else:
-        st.session_state["last_run"] = None
-
-
-def _render_stream_interval(client: DashboardClient) -> None:
-    interval = st.slider(
-        "Stream interval (s)",
-        min_value=0.0,
-        max_value=15.0,
-        value=0.1,
-        step=0.1,
-        key=K_INTERVAL,
-    )
-    if st.session_state.get("last_interval") != interval:
-        client.send_set_stream_interval(interval)
-        st.session_state["last_interval"] = interval
-    st.caption("Delay between published samples.")
-
-
-def _render_chart_pickers(client: DashboardClient) -> None:
-    channels = client.store.channels()
-    xmeas = sorted([ch for ch in channels if ch.startswith("xmeas_")])
-    xmv = sorted([ch for ch in channels if ch.startswith("xmv_")])
-
-    if not xmeas and not xmv:
-        st.caption("Waiting for sensor data before variables can be plotted…")
-        return
-
-    cx, cm = st.columns(2)
-    with cx:
-        st.multiselect(
-            "Measured variables (xmeas)",
-            xmeas,
-            default=xmeas[:6],
-            key=K_XMEAS,
-        )
-    with cm:
-        st.multiselect(
-            "Manipulated variables (xmv)",
-            xmv,
-            default=xmv[:3],
-            key=K_XMV,
+        run_tone = (
+            "run" if running is True
+            else ("pause" if running is False else "info")
         )
 
+        fault_txt = f"F{fault}" if fault is not None else "—"
+        fault_note = (
+            f"fault_{fault} · run {run}" if fault is not None else "no dataset loaded"
+        )
+        position = state["position"]
+        dataset_note = (
+            f"fault_{fault} · run_{run} · row {position}"
+            if fault is not None and run is not None
+            else "awaiting stream"
+        )
 
-# --------------------------------------------------------------------------- #
-# read-only display fragments (safe to re-run every 0.5s)
-# --------------------------------------------------------------------------- #
-
-@st.fragment(run_every=0.5)
-def _render_live(client: DashboardClient) -> None:
-    state = _read_state(client)
-    state["label"], state["tone"] = _overall_state(state["running"])
-
-    connected = client.store.is_connected()
-
-    hud = [
-        c.pill(state["label"], state["tone"]),
-        c.badge(
-            "Fault",
-            f'F{state["fault"]}' if state["fault"] is not None else "—",
-            accent=state["fault"] not in (None, 0),
-        ),
-        c.pill(
-            "MQTT " + ("LIVE" if connected else "DOWN"),
-            "run" if connected else "stop",
-        ),
-    ]
-
-    st.markdown(
-        c.page_head(
-            "Sensor Generator",
-            "Tennessee Eastman Process · Edge–Cloud Inference Orchestration",
-            "SG",
-            hud,
-        ),
-        unsafe_allow_html=True,
-    )
-
-    if not connected:
-        st.markdown(
-            '<div class="edge-banner edge-banner--warn">'
-            "No live MQTT traffic detected — broker unreachable or "
-            "generator silent. Commands may not be delivered."
-            "</div>",
+        row1 = st.columns(4)
+        row1[0].markdown(
+            c.tile(
+                "Generator state",
+                str(state["label"]).upper(),
+                note="streaming" if running else "idle",
+                tone=run_tone,
+                icon="◎",
+            ),
+            unsafe_allow_html=True,
+        )
+        row1[1].markdown(
+            c.tile(
+                "Fault scenario",
+                fault_txt.upper(),
+                note=fault_note,
+                tone=run_tone if fault is not None else "",
+                icon="⚠",
+            ),
+            unsafe_allow_html=True,
+        )
+        row1[2].markdown(
+            c.tile(
+                "Publish rate",
+                f"{rate:.1f}<small>msg/s</small>",
+                note="last 5s window",
+                tone="info",
+                icon="≈",
+            ),
+            unsafe_allow_html=True,
+        )
+        row1[3].markdown(
+            c.tile(
+                "Messages published",
+                c.format_count(store.get_message_count()),
+                note="published to sensor/raw",
+                tone="accent",
+                icon="Σ",
+            ),
             unsafe_allow_html=True,
         )
 
-    _render_metrics(client, state)
+        row2 = st.columns(4)
+        row2[0].markdown(
+            c.tile(
+                "Sampling interval",
+                f"{interval:.2f}<small>s</small>" if interval is not None else "—",
+                note="between samples",
+                tone="info",
+                icon="▮",
+            ),
+            unsafe_allow_html=True,
+        )
+        row2[1].markdown(
+            c.tile(
+                "MQTT link",
+                "CONNECTED" if connected else "OFFLINE",
+                note="sensor/raw · sensor/status",
+                tone="run" if connected else "stop",
+                icon="↔",
+            ),
+            unsafe_allow_html=True,
+        )
+        row2[2].markdown(
+            c.tile(
+                "Dataset",
+                DATASET_NAME,
+                note=dataset_note,
+                tone="info",
+                icon="◇",
+            ),
+            unsafe_allow_html=True,
+        )
+        row2[3].markdown(
+            c.tile(
+                "Last published",
+                _fmt_time(last_at),
+                note=_now_str(),
+                tone="",
+                icon="◷",
+            ),
+            unsafe_allow_html=True,
+        )
 
+    @st.fragment(run_every=1.0)
+    def _render_controls(self) -> None:
+        running = _read_state(self.store)["running"]
 
-@st.fragment(run_every=0.5)
-def _render_chart(client: DashboardClient) -> None:
-    xmeas = list(st.session_state.get(K_XMEAS, []))
-    xmv = list(st.session_state.get(K_XMV, []))
-    selected = xmeas + xmv
-
-    samples = client.store.recent_samples()
-    if samples and selected:
-        df = build_sensor_dataframe(samples, selected)
-        st.plotly_chart(
-            sensor_figure(df, xmeas, xmv),
+        col_a = st.columns(2)
+        if col_a[0].button(
+            "Start",
+            key="btn_start",
+            type="primary" if running is True else "secondary",
             width="stretch",
-            config={"displayModeBar": False, "scrollZoom": True},
+        ):
+            self.controller.send_start()
+        if col_a[1].button(
+            "Stop",
+            key="btn_stop",
+            type="primary" if running is not True else "secondary",
+            width="stretch",
+        ):
+            self.controller.send_halt()
+
+        if running:
+            st.caption("Stream active — samples flowing to sensor/raw.")
+        else:
+            st.caption("Stream idle — awaiting start or dataset selection.")
+
+    def _render_reset(self) -> None:
+        if st.button("Reset", key="btn_reset", width="stretch"):
+            self.controller.send_reset()
+
+    def _render_fault(self) -> None:
+        selected_fault = st.selectbox(
+            "Fault scenario",
+            FAULTS,
+            index=0,
+            key=K_FAULT,
+            help="Select a TEP fault scenario to stream.",
         )
-    else:
+        if st.session_state.get("last_fault") != selected_fault:
+            self.controller.send_set_fault(selected_fault)
+            st.session_state["last_fault"] = selected_fault
+            st.session_state["last_run"] = None
+
+        run_options = ["Auto (random)"] + [str(r) for r in RUNS]
+        selected_run = st.selectbox(
+            "Run",
+            run_options,
+            key=K_RUN,
+            help="Pin a specific simulation run, or let the generator pick randomly.",
+        )
+        if selected_run != "Auto (random)":
+            pinned_run = int(selected_run)
+            if st.session_state.get("last_run") != pinned_run:
+                self.controller.send_set_stream(selected_fault, pinned_run)
+                st.session_state["last_run"] = pinned_run
+        else:
+            st.session_state["last_run"] = None
+
+    def _render_stream_interval(self) -> None:
+        interval = st.slider(
+            "Stream interval (s)",
+            min_value=0.0,
+            max_value=15.0,
+            value=0.1,
+            step=0.1,
+            key=K_INTERVAL,
+        )
+        if st.session_state.get("last_interval") != interval:
+            self.controller.send_set_stream_interval(interval)
+            st.session_state["last_interval"] = interval
+        st.caption("Delay between published samples.")
+
+    def _render_chart_pickers(self) -> None:
+        channels = self.store.channels()
+        xmeas = sorted([ch for ch in channels if ch.startswith("xmeas_")])
+        xmv = sorted([ch for ch in channels if ch.startswith("xmv_")])
+
+        if not xmeas and not xmv:
+            st.caption("Waiting for sensor data before variables can be plotted…")
+            return
+
+        cx, cm = st.columns(2)
+        with cx:
+            st.multiselect(
+                "Measured variables (xmeas)",
+                xmeas,
+                default=xmeas[:6],
+                key=K_XMEAS,
+            )
+        with cm:
+            st.multiselect(
+                "Manipulated variables (xmv)",
+                xmv,
+                default=xmv[:3],
+                key=K_XMV,
+            )
+
+    # --------------------------------------------------------------------- #
+    # read-only display fragments (safe to re-run every 0.5s)
+    # --------------------------------------------------------------------- #
+
+    @st.fragment(run_every=0.5)
+    def _render_live(self) -> None:
+        state = _read_state(self.store)
+        state["label"], state["tone"] = _overall_state(state["running"])
+
+        connected = self.client.is_connected()
+
+        hud = [
+            c.pill(state["label"], state["tone"]),
+            c.badge(
+                "Fault",
+                f'F{state["fault"]}' if state["fault"] is not None else "—",
+                accent=state["fault"] not in (None, 0),
+            ),
+            c.pill(
+                "MQTT " + ("LIVE" if connected else "DOWN"),
+                "run" if connected else "stop",
+            ),
+        ]
+
         st.markdown(
-            '<div class="edge-events-empty">Waiting for sensor samples…</div>',
+            c.page_head(
+                "Sensor Generator",
+                "Tennessee Eastman Process · Edge–Cloud Inference Orchestration",
+                "SG",
+                hud,
+            ),
             unsafe_allow_html=True,
         )
 
+        if not connected:
+            st.markdown(
+                '<div class="edge-banner edge-banner--warn">'
+                "No live MQTT traffic detected — broker unreachable or "
+                "generator silent. Commands may not be delivered."
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
-@st.fragment(run_every=0.5)
-def _render_timeline(client: DashboardClient) -> None:
-    st.markdown(
-        c.panel_open("Event Timeline", "action log"),
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        c.event_timeline(client.store.recent_events()),
-        unsafe_allow_html=True,
-    )
-    st.markdown(c.panel_close(), unsafe_allow_html=True)
+        self._render_metrics(state)
 
+    @st.fragment(run_every=0.5)
+    def _render_chart(self) -> None:
+        xmeas = list(st.session_state.get(K_XMEAS, []))
+        xmv = list(st.session_state.get(K_XMV, []))
+        selected = xmeas + xmv
 
-# --------------------------------------------------------------------------- #
-# entry point
-# --------------------------------------------------------------------------- #
+        samples = self.store.recent_samples()
+        if samples and selected:
+            df = build_sensor_dataframe(samples, selected)
+            st.plotly_chart(
+                sensor_figure(df, xmeas, xmv),
+                width="stretch",
+                config={"displayModeBar": False, "scrollZoom": True},
+            )
+        else:
+            st.markdown(
+                '<div class="edge-events-empty">Waiting for sensor samples…</div>',
+                unsafe_allow_html=True,
+            )
 
-def render_sensor_generator(client: DashboardClient) -> None:
-    _render_live(client)
-
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
-    col_main, col_side = st.columns([2.15, 1], gap="large")
-
-    with col_main:
+    @st.fragment(run_every=0.5)
+    def _render_timeline(self) -> None:
         st.markdown(
-            c.panel_open("Live Process Variables"),
+            c.panel_open("Event Timeline", "action log"),
             unsafe_allow_html=True,
         )
-        _render_chart_pickers(client)
-        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-        _render_chart(client)
+        st.markdown(
+            c.event_timeline(self.store.recent_actions()),
+            unsafe_allow_html=True,
+        )
         st.markdown(c.panel_close(), unsafe_allow_html=True)
 
-    with col_side:
-        st.markdown(
-            c.panel_open("Machine Controls"),
-            unsafe_allow_html=True,
-        )
-        _render_controls(client)
-        _render_reset(client)
-        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-        _render_fault(client)
-        st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-        _render_stream_interval(client)
-        st.markdown(c.panel_close(), unsafe_allow_html=True)
+    # --------------------------------------------------------------------- #
+    # entry point
+    # --------------------------------------------------------------------- #
 
-    st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+    def render(self) -> None:
+        st.session_state.setdefault("last_fault", 0)
+        st.session_state.setdefault("last_run", None)
+        st.session_state.setdefault("last_interval", 0.1)
 
-    _render_timeline(client)
+        self._render_live()
+
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+        col_main, col_side = st.columns([2.15, 1], gap="large")
+
+        with col_main:
+            st.markdown(
+                c.panel_open("Live Process Variables"),
+                unsafe_allow_html=True,
+            )
+            self._render_chart_pickers()
+            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+            self._render_chart()
+            st.markdown(c.panel_close(), unsafe_allow_html=True)
+
+        with col_side:
+            st.markdown(
+                c.panel_open("Machine Controls"),
+                unsafe_allow_html=True,
+            )
+            self._render_controls()
+            self._render_reset()
+            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+            self._render_fault()
+            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+            self._render_stream_interval()
+            st.markdown(c.panel_close(), unsafe_allow_html=True)
+
+        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+        self._render_timeline()

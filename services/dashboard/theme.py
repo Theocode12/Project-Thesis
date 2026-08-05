@@ -45,6 +45,7 @@ STATUS_KINDS = {
     "mqtt": COLORS["info"],
     "interval": COLORS["pause"],
     "stream": COLORS["run"],
+    "detect": COLORS["stop"],
 }
 
 CSS = f"""
@@ -404,6 +405,7 @@ html, body, [data-testid="stAppViewContainer"],
 .edge-event--fault .edge-event-dot {{ background: var(--edge-stop); }}
 .edge-event--interval .edge-event-dot {{ background: var(--edge-pause); }}
 .edge-event--stream .edge-event-dot {{ background: var(--edge-run); }}
+.edge-event--detect .edge-event-dot {{ background: var(--edge-stop); }}
 
 .edge-event-text {{
     font-size: 0.78rem;
