@@ -221,7 +221,7 @@ Tasks:
 
 ```json
 {
-  "action": "start"
+  "action": "sg_start"
 }
 ```
 
@@ -229,7 +229,7 @@ Tasks:
 
 ```json
 {
-  "action": "stop"
+  "action": "sg_stop"
 }
 ```
 
@@ -237,7 +237,7 @@ Tasks:
 
 ```json
 {
-  "action": "set_fault",
+  "action": "sg_set_fault",
   "fault": 7
 }
 ```
@@ -246,7 +246,7 @@ Tasks:
 
 ```json
 {
-  "action": "set_stream",
+  "action": "sg_set_stream",
   "fault": 7,
   "run": 384
 }
@@ -256,7 +256,7 @@ Tasks:
 
 ```json
 {
-  "action": "reset"
+  "action": "sg_reset"
 }
 ```
 

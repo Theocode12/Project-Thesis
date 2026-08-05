@@ -11,6 +11,8 @@ class MQTTOPIC(str, Enum):
 
     ANOMALY_DETECTED = "anomaly/detected"
 
+    EDGE_STATUS = "edge/status"
+
     CLASSIFICATION_REQUEST = (
         "classification/request"
     )

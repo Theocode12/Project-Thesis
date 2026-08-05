@@ -217,7 +217,7 @@ Messages:
 
 ```json
 {
-  "action": "set_fault",
+  "action": "sg_set_fault",
   "fault": 1
 }
 ```
@@ -226,7 +226,7 @@ or
 
 ```json
 {
-  "action": "set_fault",
+  "action": "sg_set_fault",
   "fault": 0
 }
 ```
@@ -235,7 +235,7 @@ or
 
 ```json
 {
-  "action": "start"
+  "action": "sg_start"
 }
 ```
 
@@ -243,7 +243,7 @@ or
 
 ```json
 {
-  "action": "stop"
+  "action": "sg_stop"
 }
 ```
 
@@ -257,6 +257,29 @@ Subscribed by:
 
 ```text
 sensor-generator
+```
+
+Actions are namespaced per service to avoid cross-triggering on the shared
+topic: `sg_*` for the sensor generator, `ed_*` for the edge detector.
+
+Edge detector control messages:
+
+```json
+{
+  "action": "ed_start"
+}
+```
+
+```json
+{
+  "action": "ed_stop"
+}
+```
+
+Subscribed by:
+
+```text
+edge-detector
 ```
 
 ---

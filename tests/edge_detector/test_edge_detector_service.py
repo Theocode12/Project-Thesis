@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import time
+
 import pytest
 
 from edge_detector_service import EdgeDetectorService
@@ -49,8 +51,11 @@ class TestEdgeDetectorServiceStartStop:
         service.start()
 
         mock_mqtt_service.connect.assert_called_once()
-        mock_mqtt_service.subscribe.assert_called_once_with(
+        mock_mqtt_service.subscribe.assert_any_call(
             MQTTOPIC.SENSOR_RAW, service.handle_sample
+        )
+        mock_mqtt_service.subscribe.assert_any_call(
+            MQTTOPIC.SYSTEM_CONTROL, service.handle_command
         )
         mock_mqtt_service.start.assert_called_once()
         assert service.running is True
@@ -63,6 +68,62 @@ class TestEdgeDetectorServiceStartStop:
         mock_mqtt_service.stop.assert_called_once()
 
 
+class TestEdgeDetectorServiceHandleCommand:
+
+    def test_action_map_has_all_actions(self, service):
+        assert set(service._action_map.keys()) == {
+            "ed_start", "ed_stop", "ed_reset"
+        }
+
+    def test_none_payload_does_nothing(self, service):
+        service.handle_command(None)
+
+        assert service.detection_enabled is True
+
+    def test_unknown_action_does_nothing(self, service):
+        service.handle_command({"action": "unknown"})
+
+        assert service.detection_enabled is True
+
+    def test_plain_start_action_is_ignored(self, service):
+        service.handle_command({"action": "start"})
+
+        assert service.detection_enabled is True
+
+    def test_ed_start_enables_detection(self, service):
+        service.detection_enabled = False
+        service.handle_command({"action": "ed_start"})
+
+        assert service.detection_enabled is True
+
+    def test_ed_stop_disables_detection(self, service):
+        service.handle_command({"action": "ed_stop"})
+
+        assert service.detection_enabled is False
+
+    def test_ed_reset_clears_state(self, service, mock_mqtt_service):
+        service.samples_processed = 10
+        service._sample_times.append(time.time())
+        service._latencies.append((time.time(), 1.5))
+        service._last_reconstruction_error = 0.9
+
+        service.handle_command({"action": "ed_reset"})
+
+        assert service.samples_processed == 0
+        assert len(service._sample_times) == 0
+        assert len(service._latencies) == 0
+        assert service._last_reconstruction_error is None
+
+    def test_commands_publish_status(self, service, mock_mqtt_service):
+        service.handle_command({"action": "ed_start"})
+
+        published = [
+            call.args[0]
+            for call in mock_mqtt_service.publish.call_args_list
+        ]
+        assert MQTTOPIC.EDGE_STATUS in published
+
+
 class TestEdgeDetectorServiceHandleSample:
 
     def test_extracts_payload_and_detects(self, service, mock_detector):
@@ -71,6 +132,14 @@ class TestEdgeDetectorServiceHandleSample:
         }
         service.handle_sample(payload)
         mock_detector.detect.assert_called_once_with({"sensor": 1})
+
+    def test_skips_sample_when_detection_disabled(
+        self, service, mock_detector
+    ):
+        service.detection_enabled = False
+        service.handle_sample({"payload": {"sample": {"sensor": 1}}})
+
+        mock_detector.detect.assert_not_called()
 
     def test_skips_no_payload(self, service, mock_detector):
         service.handle_sample({})
@@ -142,3 +211,62 @@ class TestEdgeDetectorServiceHandleSample:
         service.handle_sample(payload)
 
         mock_mqtt_service.publish.assert_not_called()
+
+    def test_records_processing_stats_per_sample(
+        self, service, mock_detector
+    ):
+        service.handle_sample({"payload": {"sample": {"sensor": 1}}})
+        service.handle_sample({"payload": {"sample": {"sensor": 2}}})
+
+        assert service.samples_processed == 2
+        assert service._last_reconstruction_error == 0.001
+        assert len(service._latencies) == 2
+
+    def test_does_not_count_samples_when_disabled(
+        self, service, mock_detector
+    ):
+        service.detection_enabled = False
+        service.handle_sample({"payload": {"sample": {"sensor": 1}}})
+
+        assert service.samples_processed == 0
+
+
+class TestEdgeDetectorServiceStatus:
+
+    @pytest.fixture
+    def service(self, mock_detector, mock_mqtt_service, mock_metrics):
+        mock_metrics.wrap.side_effect = (
+            lambda data_key, data, extra=None: {
+                data_key: data,
+                "ed_metrics": mock_metrics.snapshot(),
+            }
+        )
+        return EdgeDetectorService(
+            detector=mock_detector,
+            mqtt_service=mock_mqtt_service,
+            metrics=mock_metrics,
+        )
+
+    def test_publish_status_publishes_telemetry(
+        self, service, mock_mqtt_service
+    ):
+        service.running = True
+        service.samples_processed = 5
+        service._latencies.append((time.time(), 2.0))
+
+        service.publish_status()
+
+        mock_mqtt_service.publish.assert_called_once()
+        topic, message = mock_mqtt_service.publish.call_args[0]
+        assert topic == MQTTOPIC.EDGE_STATUS
+        assert message["source"] == "edge-detector"
+
+        status = message["payload"]["status"]
+        assert status["running"] is True
+        assert status["detection_enabled"] is True
+        assert status["model_loaded"] is True
+        assert status["samples_processed"] == 5
+        assert status["avg_processing_time_ms"] == 2.0
+        assert "threshold" in status
+        assert "inference_rate" in status
+        assert "reconstruction_error" in status

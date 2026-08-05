@@ -23,8 +23,6 @@ VIEWS = {
     "Edge Detection": (DetectionView, "detection_store"),
 }
 
-TOPIC_CAPTION = "sensor/raw · sensor/status · anomaly/detected"
-
 
 @st.cache_resource(show_spinner=False)
 def _resources() -> dict:
@@ -36,6 +34,10 @@ def _resources() -> dict:
     client.subscribe(MQTTOPIC.SENSOR_RAW, sensor_store.handle_raw)
     client.subscribe(MQTTOPIC.SENSOR_STATUS, sensor_store.handle_status)
     client.subscribe(MQTTOPIC.ANOMALY_DETECTED, detection_store.handle_anomaly)
+    client.subscribe(MQTTOPIC.EDGE_STATUS, detection_store.handle_edge_status)
+    client.subscribe(
+        MQTTOPIC.ORCHESTRATOR_DECISION, detection_store.handle_decision
+    )
 
     client.start()
 
@@ -62,7 +64,6 @@ def service_rail() -> str:
         )
 
         st.divider()
-        st.caption(TOPIC_CAPTION)
         st.caption("Data source: Tennessee Eastman Process")
     return service
 

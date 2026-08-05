@@ -306,6 +306,55 @@ html, body, [data-testid="stAppViewContainer"],
 .edge-tile--stop .edge-tile-value {{ color: var(--edge-stop); }}
 .edge-tile--info .edge-tile-value {{ color: var(--edge-info); }}
 
+/* ---------- runtime metric row with sparkline ---------- */
+
+.edge-metric {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--edge-border);
+    border-radius: 6px;
+    background: var(--edge-panel);
+    margin-bottom: 0.5rem;
+}}
+
+.edge-metric:last-child {{
+    margin-bottom: 0;
+}}
+
+.edge-metric-label {{
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--edge-text-3);
+    margin-bottom: 0.15rem;
+}}
+
+.edge-metric-value {{
+    font-family: var(--edge-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--edge-text);
+    line-height: 1.1;
+    white-space: nowrap;
+}}
+
+.edge-metric-value small {{
+    font-size: 0.68rem;
+    color: var(--edge-text-3);
+    font-weight: 600;
+    letter-spacing: 0;
+    margin-left: 0.2rem;
+}}
+
+.edge-spark {{
+    display: block;
+    flex: none;
+}}
+
 /* ---------- panels ---------- */
 
 .edge-panel {{

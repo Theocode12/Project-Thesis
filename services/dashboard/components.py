@@ -139,3 +139,66 @@ def event_timeline(events: list[dict]) -> str:
             "</span></div>"
         )
     return '<div class="edge-events">' + "".join(rows) + "</div>"
+
+
+# --------------------------------------------------------------------------- #
+# runtime metric sparkline
+# --------------------------------------------------------------------------- #
+
+def sparkline(
+    values: list[float],
+    width: int = 96,
+    height: int = 28,
+    color: str = "#39b6e8",
+) -> str:
+    """Render a compact Grafana-style sparkline as an inline SVG.
+
+    Returns an empty placeholder when there is no data so the metric
+    tile keeps a stable height.
+    """
+    if not values or width < 4 or height < 4:
+        return (
+            f'<svg width="{width}" height="{height}" '
+            'class="edge-spark edge-spark--empty" '
+            f'viewBox="0 0 {width} {height}"></svg>'
+        )
+
+    numeric = [v for v in values if v is not None]
+    if not numeric:
+        return (
+            f'<svg width="{width}" height="{height}" '
+            'class="edge-spark edge-spark--empty" '
+            f'viewBox="0 0 {width} {height}"></svg>'
+        )
+
+    pad = 3
+    span_w = width - pad * 2
+    span_h = height - pad * 2
+
+    if len(numeric) == 1:
+        lo = hi = numeric[0]
+    else:
+        lo = min(numeric)
+        hi = max(numeric)
+
+    if hi - lo < 1e-9:
+        lo -= 0.5
+        hi += 0.5
+
+    step = span_w / (len(numeric) - 1) if len(numeric) > 1 else 0
+    points = []
+    for i, v in enumerate(numeric):
+        x = pad + i * step
+        y = pad + span_h * (1.0 - (v - lo) / (hi - lo))
+        points.append(f"{x:.1f},{y:.1f}")
+
+    stroke = f'<polyline fill="none" stroke="{color}" stroke-width="1.4" '
+    stroke += f'stroke-linejoin="round" points="{" ".join(points)}"/>'
+    area = f'<polygon fill="{color}" fill-opacity="0.10" '
+    area += f'points="{pad},{height - pad} {" ".join(points)} '
+    area += f'{width - pad},{height - pad}"/>'
+
+    return (
+        f'<svg width="{width}" height="{height}" class="edge-spark" '
+        f'viewBox="0 0 {width} {height}">{area}{stroke}</svg>'
+    )
