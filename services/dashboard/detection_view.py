@@ -249,14 +249,14 @@ class DetectionView:
         if col_a[0].button(
             "Start",
             key="btn_ed_start",
-            type="secondary" if running else "primary",
+            type="primary" if running else "secondary",
             width="stretch",
         ):
             self.controller.send_start()
         if col_a[1].button(
             "Stop",
             key="btn_ed_stop",
-            type="primary" if running else "secondary",
+            type="secondary" if running else "primary",
             width="stretch",
         ):
             self.controller.send_stop()
