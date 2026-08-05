@@ -311,10 +311,14 @@ class SensorGeneratorView:
             self.controller.send_reset()
 
     def _render_fault(self) -> None:
+        last_fault = st.session_state.get("last_fault", 0)
+        if not (0 <= last_fault < len(FAULTS)):
+            last_fault = 0
+
         selected_fault = st.selectbox(
             "Fault scenario",
             FAULTS,
-            index=0,
+            index=last_fault,
             key=K_FAULT,
             help="Select a TEP fault scenario to stream.",
         )
@@ -322,11 +326,15 @@ class SensorGeneratorView:
             self.controller.send_set_fault(selected_fault)
             st.session_state["last_fault"] = selected_fault
             st.session_state["last_run"] = None
+            st.session_state[K_RUN] = "Auto (random)"
 
         run_options = ["Auto (random)"] + [str(r) for r in RUNS]
+        last_run = st.session_state.get("last_run")
+        run_index = last_run if last_run is not None and 1 <= last_run <= RUNS[-1] else 0
         selected_run = st.selectbox(
             "Run",
             run_options,
+            index=run_index,
             key=K_RUN,
             help="Pin a specific simulation run, or let the generator pick randomly.",
         )
@@ -339,11 +347,12 @@ class SensorGeneratorView:
             st.session_state["last_run"] = None
 
     def _render_stream_interval(self) -> None:
+        last_interval = st.session_state.get("last_interval", 0.1)
         interval = st.slider(
             "Stream interval (s)",
             min_value=0.0,
             max_value=15.0,
-            value=0.1,
+            value=min(15.0, max(0.0, last_interval)),
             step=0.1,
             key=K_INTERVAL,
         )
@@ -361,21 +370,29 @@ class SensorGeneratorView:
             st.caption("Waiting for sensor data before variables can be plotted…")
             return
 
+        last_xmeas = [ch for ch in st.session_state.get("last_xmeas", []) if ch in xmeas]
+        last_xmv = [ch for ch in st.session_state.get("last_xmv", []) if ch in xmv]
+
         cx, cm = st.columns(2)
         with cx:
-            st.multiselect(
+            picked_xmeas = st.multiselect(
                 "Measured variables (xmeas)",
                 xmeas,
-                default=xmeas[:6],
+                default=last_xmeas or xmeas[:6],
                 key=K_XMEAS,
             )
         with cm:
-            st.multiselect(
+            picked_xmv = st.multiselect(
                 "Manipulated variables (xmv)",
                 xmv,
-                default=xmv[:3],
+                default=last_xmv or xmv[:3],
                 key=K_XMV,
             )
+
+        if picked_xmeas != st.session_state.get("last_xmeas"):
+            st.session_state["last_xmeas"] = picked_xmeas
+        if picked_xmv != st.session_state.get("last_xmv"):
+            st.session_state["last_xmv"] = picked_xmv
 
     # --------------------------------------------------------------------- #
     # read-only display fragments (safe to re-run every 0.5s)
