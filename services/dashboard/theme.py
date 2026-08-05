@@ -404,6 +404,31 @@ html, body, [data-testid="stAppViewContainer"],
     padding: 0.9rem;
 }}
 
+/* Container-based panels: native Streamlit widgets wrapped in a themed box.
+   These panel regions render inside a keyed st.container(border=True), which
+   emits an [data-testid="stVerticalBlockBorderWrapper"]. The :has() rule
+   draws the themed box around any container whose first child is the panel
+   head, so it applies to every panel region without per-key selectors. */
+[data-testid="stVerticalBlockBorderWrapper"]:has(.edge-panel-head) {{
+    border: 1px solid var(--edge-border) !important;
+    border-radius: 6px;
+    background: var(--edge-panel);
+    overflow: hidden;
+}}
+
+[data-testid="stVerticalBlockBorderWrapper"]:has(.edge-panel-head)
+    [data-testid="stVerticalBlock"] {{
+    padding: 0.9rem;
+    row-gap: 0.55rem;
+}}
+
+[data-testid="stVerticalBlockBorderWrapper"]:has(.edge-panel-head)
+    [data-testid="stVerticalBlock"]
+    .edge-panel-head {{
+    margin: -0.9rem -0.9rem 0.9rem -0.9rem;
+    border-bottom: 1px solid var(--edge-border);
+}}
+
 /* ---------- misc ---------- */
 
 .edge-divider {{

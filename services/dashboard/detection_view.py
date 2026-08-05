@@ -401,31 +401,19 @@ class DetectionView:
         col_main, col_side = st.columns([2.15, 1], gap="large")
 
         with col_main:
-            st.markdown(
-                c.panel_open("Reconstruction Error", "sparse autoencoder score"),
-                unsafe_allow_html=True,
-            )
-            self._render_chart()
-            st.markdown(c.panel_close(), unsafe_allow_html=True)
+            with c.panel("Reconstruction Error", "sparse autoencoder score", key="detect_rec_error"):
+                self._render_chart()
 
         with col_side:
-            st.markdown(
-                c.panel_open("Machine Controls"),
-                unsafe_allow_html=True,
-            )
-            self._render_controls()
-            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-            self._render_reset()
-            st.markdown(c.panel_close(), unsafe_allow_html=True)
+            with c.panel("Machine Controls", key="detect_machine_controls"):
+                self._render_controls()
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                self._render_reset()
 
             st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
-            st.markdown(
-                c.panel_open("Runtime Metrics", "edge container"),
-                unsafe_allow_html=True,
-            )
-            self._render_runtime()
-            st.markdown(c.panel_close(), unsafe_allow_html=True)
+            with c.panel("Runtime Metrics", "edge container", key="detect_runtime"):
+                self._render_runtime()
 
         st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 

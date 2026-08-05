@@ -487,27 +487,19 @@ class SensorGeneratorView:
         col_main, col_side = st.columns([2.15, 1], gap="large")
 
         with col_main:
-            st.markdown(
-                c.panel_open("Live Process Variables"),
-                unsafe_allow_html=True,
-            )
-            self._render_chart_pickers()
-            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-            self._render_chart()
-            st.markdown(c.panel_close(), unsafe_allow_html=True)
+            with c.panel("Live Process Variables", key="sensor_live_vars"):
+                self._render_chart_pickers()
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                self._render_chart()
 
         with col_side:
-            st.markdown(
-                c.panel_open("Machine Controls"),
-                unsafe_allow_html=True,
-            )
-            self._render_controls()
-            self._render_reset()
-            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-            self._render_fault()
-            st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
-            self._render_stream_interval()
-            st.markdown(c.panel_close(), unsafe_allow_html=True)
+            with c.panel("Machine Controls", key="sensor_machine_controls"):
+                self._render_controls()
+                self._render_reset()
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                self._render_fault()
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                self._render_stream_interval()
 
         st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 

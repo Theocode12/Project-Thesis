@@ -7,7 +7,11 @@ stateless so any service view can compose them.
 
 import html
 import time
+import uuid
+from contextlib import contextmanager
 from datetime import datetime, UTC
+
+import streamlit as st
 
 from theme import STATUS_KINDS
 
@@ -98,21 +102,51 @@ def tile(
     )
 
 
-def panel_open(title: str, meta: str = "") -> str:
+def _panel_head(title: str, meta: str = "") -> str:
     meta_html = (
         f'<span class="edge-meta">{_ESCAPE(meta)}</span>' if meta else ""
     )
     return (
-        '<div class="edge-panel">'
-        f'<div class="edge-panel-head">'
+        '<div class="edge-panel-head">'
         f'<span class="edge-panel-title">{_ESCAPE(title)}</span>'
         f"{meta_html}</div>"
+    )
+
+
+def panel_open(title: str, meta: str = "") -> str:
+    return (
+        '<div class="edge-panel">'
+        f"{_panel_head(title, meta)}"
         '<div class="edge-panel-body">'
     )
 
 
 def panel_close() -> str:
     return "</div></div>"
+
+
+@contextmanager
+def panel(title: str, meta: str = "", key: str = ""):
+    """Themed panel that wraps native Streamlit widgets in a real box.
+
+    Unlike ``panel_open``/``panel_close`` (which only work for a single
+    HTML string), this emits the themed title bar as Markdown and then opens
+    a bordered ``st.container``. The theme (``theme.py``) draws the box around
+    any container whose first child is ``.edge-panel-head``, so the native
+    widgets rendered in the ``with`` block are visually grouped inside a real,
+    CSS-styled panel. Use it like::
+
+        with c.panel("Machine Controls", key="machine_controls"):
+            st.button("Start")
+    """
+    if not key:
+        key = f"edge_panel_{uuid.uuid4().hex[:8]}"
+    with st.container(border=True, key=key):
+        st.markdown(_panel_head(title, meta), unsafe_allow_html=True)
+        try:
+            yield
+        finally:
+            pass
 
 
 # --------------------------------------------------------------------------- #
