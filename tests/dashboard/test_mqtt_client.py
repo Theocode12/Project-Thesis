@@ -185,10 +185,41 @@ class TestDashboardClient:
         handler = lambda envelope: None  # noqa: E731
         dashboard.subscribe(MQTTOPIC.SENSOR_RAW, handler)
 
-        mqtt_service.subscribe.assert_called_once_with(
-            MQTTOPIC.SENSOR_RAW.value,
-            handler,
-        )
+        assert mqtt_service.subscribe.call_count == 1
+        registered_topic, registered_callback = mqtt_service.subscribe.call_args.args
+        assert registered_topic == MQTTOPIC.SENSOR_RAW.value
+
+        envelope = {"payload": {"sample": {"xmeas_1": 1.0}}}
+        registered_callback(envelope)
+
+        assert dashboard.last_topic == MQTTOPIC.SENSOR_RAW.value
+        assert dashboard.last_message_at is not None
+
+    def test_subscribe_invokes_handler(self, client):
+        dashboard, mqtt_service = client
+        received = []
+
+        def handler(envelope):
+            received.append(envelope)
+
+        dashboard.subscribe(MQTTOPIC.SENSOR_RAW, handler)
+        registered_callback = mqtt_service.subscribe.call_args.args[1]
+
+        registered_callback({"payload": {"sample": {"xmeas_1": 1.0}}})
+
+        assert len(received) == 1
+        assert received[0]["payload"]["sample"]["xmeas_1"] == 1.0
+
+    def test_inbound_message_marks_connected(self, client):
+        dashboard, mqtt_service = client
+        handler = lambda envelope: None  # noqa: E731
+        dashboard.subscribe(MQTTOPIC.SENSOR_RAW, handler)
+        registered_callback = mqtt_service.subscribe.call_args.args[1]
+
+        dashboard.connected = True
+        registered_callback({"payload": {}})
+
+        assert dashboard.is_connected() is True
 
     def test_note_message_tracks_health(self, client):
         dashboard, _ = client

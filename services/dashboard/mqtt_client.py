@@ -76,7 +76,11 @@ class DashboardClient:
             log.info("Dashboard MQTT client stopped")
 
     def subscribe(self, topic: MQTTOPIC, handler: Callable[[dict], Any]) -> None:
-        self.mqtt_service.subscribe(topic.value, handler)
+        def wrapped(envelope: dict) -> None:
+            self.note_message(topic)
+            handler(envelope)
+
+        self.mqtt_service.subscribe(topic.value, wrapped)
 
     def publish(self, topic: MQTTOPIC, payload: dict) -> None:
         self.mqtt_service.publish(topic, payload)
