@@ -39,7 +39,7 @@ from mqtt_client import DashboardClient
 from sensor_store import SensorGeneratorController, SensorGeneratorStore
 from theme import MONO
 
-FAULTS = list(range(21))
+FAULTS = [f for f in range(21) if f not in (3, 9, 15)]
 RUNS = list(range(1, 501))
 DATASET_NAME = "TEP"
 

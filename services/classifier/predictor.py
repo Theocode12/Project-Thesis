@@ -44,7 +44,7 @@ DEFAULT_SCALER_PATH = MODEL_DIR / "scaler.pkl"
 DEFAULT_LABEL_ENCODER_PATH = MODEL_DIR / "label_encoder.pkl"
 DEFAULT_FEATURE_COLUMNS_PATH = MODEL_DIR / "feature_columns.json"
 
-MODEL_NAME = "fault_classifier_pytorch"
+MODEL_NAME = "Neural Network"
 
 
 class Predictor(Classifier):

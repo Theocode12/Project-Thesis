@@ -14,7 +14,7 @@ from shared.mqtt_topics import MQTTOPIC
 def make_status_envelope(
     running=True,
     model_loaded=True,
-    model="fault_classifier_pytorch",
+    model="Neural Network",
     classes_available=21,
     classifications_processed=120,
     batch_count=30,
@@ -60,7 +60,7 @@ def make_result_envelope(
     diagnosis="fault_4",
     fault_number=4,
     confidence=0.95,
-    model="fault_classifier_pytorch",
+    model="Neural Network",
     sample_count=6,
 ):
     return {
@@ -97,7 +97,7 @@ class TestDiagnosisStoreStatus:
 
         assert store.running is True
         assert store.model_loaded is True
-        assert store.model == "fault_classifier_pytorch"
+        assert store.model == "Neural Network"
         assert store.classes_available == 21
         assert store.queue_depth == 2
         assert store.classifications_processed == 120
@@ -166,7 +166,7 @@ class TestDiagnosisStoreResult:
         assert latest["diagnosis"] == "fault_4"
         assert latest["fault_number"] == 4
         assert latest["confidence"] == 0.95
-        assert latest["model"] == "fault_classifier_pytorch"
+        assert latest["model"] == "Neural Network"
 
     def test_handle_result_logs_events(self):
         store = DiagnosisStore()

@@ -94,7 +94,7 @@ class DiagnosisView:
             c.tile(
                 "Classifier status",
                 state,
-                note="PyTorch fault classifier",
+                note="Ready to classify",
                 tone=state_tone,
                 icon="◎",
             ),
@@ -105,7 +105,7 @@ class DiagnosisView:
                 "Model",
                 model,
                 note=(
-                    "loaded model"
+                    "PyTorch"
                     if store.model_loaded is not None
                     else "no model yet"
                 ),
