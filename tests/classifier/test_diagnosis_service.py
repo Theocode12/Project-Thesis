@@ -30,6 +30,7 @@ def mock_mqtt_service():
 @pytest.fixture
 def mock_metrics():
     metrics = MagicMock()
+    metrics.metrics_key = "cl_metrics"
     metrics.snapshot.return_value = {"dummy": True}
     return metrics
 
@@ -111,7 +112,47 @@ class TestDiagnosisServiceProcess:
         assert result["sample_count"] == 4
         assert result["prediction_counts"] == {7: 4}
         assert result["meta"]["batch_id"] == "batch_test123456"
-        assert result["classifier_metrics"] == {"dummy": True}
+        assert result["cl_metrics"] == {"dummy": True}
+        assert result["accuracy"] is None
+        assert result["correct_count"] is None
+        assert result["ground_truth_available"] is None
+
+        extra = mock_metrics.snapshot.call_args.kwargs["extra"]
+        assert extra["batch_id"] == "batch_test123456"
+        assert extra["batch_size"] == 2
+        assert extra["inference_ms"] is not None
+        assert extra["accuracy"] is None
+
+    def test_publishes_accuracy_from_predictor(
+        self,
+        service,
+        mock_classifier,
+        mock_mqtt_service,
+        mock_metrics,
+    ):
+        mock_classifier.predict.return_value = {
+            "fault_number": 7,
+            "diagnosis": "fault_7",
+            "model": "heuristic",
+            "confidence": 0.8,
+            "sample_count": 4,
+            "prediction_counts": {7: 4},
+            "accuracy": 0.75,
+            "correct_count": 3,
+            "ground_truth_available": 4,
+        }
+
+        service._process("batch_x", sample_payload())
+
+        result = published_payload(mock_mqtt_service)
+        assert result["accuracy"] == 0.75
+        assert result["correct_count"] == 3
+        assert result["ground_truth_available"] == 4
+
+        extra = mock_metrics.snapshot.call_args.kwargs["extra"]
+        assert extra["accuracy"] == 0.75
+        assert extra["correct_count"] == 3
+        assert extra["ground_truth_available"] == 4
 
     def test_publishes_unknown_on_classifier_error(
         self,
@@ -160,7 +201,7 @@ class TestDiagnosisServiceWorker:
         try:
             service.submit(sample_payload())
             _wait_for(
-                lambda: mock_mqtt_service.publish.call_count > 0
+                lambda: _classification_published(mock_mqtt_service)
             )
 
             result = published_payload(mock_mqtt_service)
@@ -180,10 +221,101 @@ class TestDiagnosisServiceWorker:
         service.stop()
 
 
+class TestDiagnosisServiceStatus:
+
+    def test_publishes_status_heartbeat(
+        self,
+        service,
+        mock_mqtt_service,
+    ):
+        service.start()
+        try:
+            _wait_for(
+                lambda: _status_published(mock_mqtt_service),
+                timeout=5.0,
+            )
+
+            topic, envelope = _last_status_call(mock_mqtt_service)
+            assert topic == MQTTOPIC.CLASSIFIER_STATUS
+            assert envelope["source"] == "classifier"
+
+            payload = envelope["payload"]
+            assert payload["cl_metrics"]["container"] is not None
+            status = payload["status"]
+            assert status["running"] is True
+            assert status["model"] == "heuristic"
+            assert status["model_loaded"] is True
+            assert status["batch_count"] == 0
+            assert status["classifications_processed"] == 0
+            assert status["queue_depth"] == 0
+        finally:
+            service.stop()
+
+    def test_status_reflects_processed_batches(
+        self,
+        service,
+        mock_mqtt_service,
+    ):
+        service.start()
+        try:
+            service.submit(sample_payload())
+            _wait_for(
+                lambda: _classification_published(mock_mqtt_service),
+                timeout=5.0,
+            )
+            _wait_for(
+                lambda: _status_batch_count(mock_mqtt_service) >= 1,
+                timeout=5.0,
+            )
+
+            payload = _last_status_payload(mock_mqtt_service)
+            assert payload["status"]["batch_count"] == 1
+            assert payload["status"]["classifications_processed"] == 2
+        finally:
+            service.stop()
+
+
 def published_payload(mock_mqtt_service) -> dict:
-    topic, envelope = mock_mqtt_service.publish.call_args[0]
-    assert topic == MQTTOPIC.CLASSIFICATION_RESULT
+    for call in mock_mqtt_service.publish.call_args_list:
+        if call.args[0] == MQTTOPIC.CLASSIFICATION_RESULT:
+            return call.args[1]["payload"]
+    raise AssertionError("No classification result published")
+
+
+def _classification_published(mock_mqtt_service) -> bool:
+    return any(
+        call.args[0] == MQTTOPIC.CLASSIFICATION_RESULT
+        for call in mock_mqtt_service.publish.call_args_list
+    )
+
+
+def _status_published(mock_mqtt_service) -> bool:
+    return any(
+        call.args[0] == MQTTOPIC.CLASSIFIER_STATUS
+        for call in mock_mqtt_service.publish.call_args_list
+    )
+
+
+def _last_status_call(mock_mqtt_service):
+    for call in mock_mqtt_service.publish.call_args_list:
+        if call.args[0] == MQTTOPIC.CLASSIFIER_STATUS:
+            last = call
+    if "last" not in locals():
+        raise AssertionError("No classifier status published")
+    return last.args[0], last.args[1]
+
+
+def _last_status_payload(mock_mqtt_service) -> dict:
+    topic, envelope = _last_status_call(mock_mqtt_service)
     return envelope["payload"]
+
+
+def _status_batch_count(mock_mqtt_service) -> int:
+    try:
+        payload = _last_status_payload(mock_mqtt_service)
+    except AssertionError:
+        return 0
+    return payload["status"]["batch_count"]
 
 
 def _wait_for(condition, timeout=2.0):

@@ -21,6 +21,10 @@ class MQTTOPIC(str, Enum):
         "classification/result"
     )
 
+    CLASSIFIER_STATUS = (
+        "classifier/status"
+    )
+
     ORCHESTRATOR_DECISION = (
         "orchestrator/decision"
     )

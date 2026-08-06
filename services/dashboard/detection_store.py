@@ -174,7 +174,7 @@ class DetectionStore:
                 self.cpu_history.append({"t": now, "value": cpu})
                 self._trim_history(self.cpu_history, MAX_RUNTIME_POINTS)
 
-            mem = container.get("memory_percent")
+            mem = container.get("memory_used_bytes")
             if mem is not None:
                 self.mem_history.append({"t": now, "value": mem})
                 self._trim_history(self.mem_history, MAX_RUNTIME_POINTS)

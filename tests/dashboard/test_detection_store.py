@@ -43,7 +43,7 @@ def make_status_envelope(
     reconstruction_error=0.02,
     avg_processing_time_ms=3.0,
     cpu_percent=12.5,
-    memory_percent=41.0,
+    memory_used_bytes=41_000_000,
 ):
     return {
         "source": "edge-detector",
@@ -62,7 +62,7 @@ def make_status_envelope(
             "ed_metrics": {
                 "container": {
                     "cpu_percent": cpu_percent,
-                    "memory_percent": memory_percent,
+                    "memory_used_bytes": memory_used_bytes,
                 },
             },
         },
@@ -168,15 +168,15 @@ class TestDetectionStoreStatus:
     def test_handle_edge_status_records_runtime_series(self):
         store = DetectionStore()
         store.handle_edge_status(
-            make_status_envelope(cpu_percent=10.0, memory_percent=20.0)
+            make_status_envelope(cpu_percent=10.0, memory_used_bytes=20_000_000)
         )
         store.handle_edge_status(
-            make_status_envelope(cpu_percent=15.0, memory_percent=25.0)
+            make_status_envelope(cpu_percent=15.0, memory_used_bytes=25_000_000)
         )
 
         runtime = store.recent_runtime()
         assert [p["value"] for p in runtime["cpu"]] == [10.0, 15.0]
-        assert [p["value"] for p in runtime["memory"]] == [20.0, 25.0]
+        assert [p["value"] for p in runtime["memory"]] == [20_000_000, 25_000_000]
         assert [p["value"] for p in runtime["latency"]] == [3.0, 3.0]
 
     def test_status_transitions_log_lifecycle_events(self):

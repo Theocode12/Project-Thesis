@@ -4,15 +4,18 @@ classifier.py
 Pluggable classifier interface used by the Diagnosis Service.
 
 The interface is intentionally minimal so a trained model can be dropped
-in later without touching the surrounding plumbing. The default
-implementation is a heuristic stub that reports the majority fault label
-carried by the streamed samples, which keeps the pipeline runnable
-end-to-end until a real feature-based model is available.
+in later without touching the surrounding plumbing. The default factory
+returns the real ML predictor (Predictor); a heuristic stub that reports
+the majority fault label carried by the streamed samples is kept around
+as a fallback if the model artifacts cannot be loaded.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from collections import Counter
 from typing import List
+
+log = logging.getLogger(__name__)
 
 
 class Classifier(ABC):
@@ -85,4 +88,12 @@ class HeuristicClassifier(Classifier):
 
 
 def create_classifier() -> Classifier:
-    return HeuristicClassifier()
+    from predictor import Predictor
+
+    try:
+        return Predictor()
+    except Exception:
+        log.exception(
+            "Failed to initialise ML predictor; using heuristic fallback"
+        )
+        return HeuristicClassifier()

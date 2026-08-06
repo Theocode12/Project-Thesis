@@ -51,6 +51,19 @@ def _now_str() -> str:
     return datetime.now(UTC).strftime("%H:%M:%S")
 
 
+def _fmt_bytes(num: float) -> str:
+    value = float(num)
+    for unit in ("B", "KB", "MB", "GB"):
+        if value < 1024.0 or unit == "GB":
+            return f"{value:.1f}<small>{unit}</small>"
+        value /= 1024.0
+    return f"{value:.1f}<small>TB</small>"
+
+
+def _fmt_pct(num: float) -> str:
+    return f"{num:.3g}<small>%</small>"
+
+
 def scores_dataframe(scores: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame([
         {"t": point["t"], "value": point["value"], "anomaly": point["anomaly"]}
@@ -304,12 +317,12 @@ class DetectionView:
 
         cpu_row = _metric_row(
             "CPU usage",
-            f"{cpu:.1f}<small>%</small>" if cpu is not None else "—",
+            _fmt_pct(cpu) if cpu is not None else "—",
             c.sparkline(spark_values(runtime["cpu"]), color=SPARK_COLORS["cpu"]),
         )
         mem_row = _metric_row(
             "Memory usage",
-            f"{mem:.1f}<small>%</small>" if mem is not None else "—",
+            _fmt_bytes(mem) if mem is not None else "—",
             c.sparkline(
                 spark_values(runtime["memory"]), color=SPARK_COLORS["memory"]
             ),

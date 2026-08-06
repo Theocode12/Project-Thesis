@@ -1,6 +1,10 @@
 import pytest
 
-from classifier import HeuristicClassifier, create_classifier
+from classifier import (
+    Classifier,
+    HeuristicClassifier,
+    create_classifier,
+)
 
 
 @pytest.fixture
@@ -70,7 +74,7 @@ class TestHeuristicClassifier:
 
 class TestCreateClassifier:
 
-    def test_returns_heuristic_by_default(self):
+    def test_returns_a_classifier(self):
         classifier = create_classifier()
 
-        assert isinstance(classifier, HeuristicClassifier)
+        assert isinstance(classifier, Classifier)

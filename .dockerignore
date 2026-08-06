@@ -7,7 +7,7 @@ __pycache__
 datasets
 results
 experiments
-models
+/models
 docs
 *.md
 **/Dockerfile

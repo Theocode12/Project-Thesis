@@ -43,6 +43,8 @@ services:
 
     # restart: unless-stopped
 
+    mem_limit: 1g
+
     environment:
       MQTT_HOST: mqtt-broker
       MQTT_PORT: 1883
@@ -92,27 +94,27 @@ services:
       ANOMALY_HIGH_RATIO: 0.5
       ANOMALY_LOW_RATIO: 0.1
       FALLBACK_STREAM_INTERVAL: 0.1
-      DIAGNOSIS_ENDPOINT: "http://localhost:8000/diagnose"
+      DIAGNOSIS_ENDPOINT: "http://classifier:8000/diagnose"
 
 
-  # classifier:
-  #   build:
-  #     context: .
-  #     dockerfile: services/classifier/Dockerfile
+  classifier:
+    build:
+      context: .
+      dockerfile: services/classifier/Dockerfile
 
-  #   container_name: classifier
+    container_name: classifier
 
-  #   depends_on:
-  #     - mqtt-broker
+    depends_on:
+      - mqtt-broker
 
-  #   # restart: unless-stopped
+    # restart: unless-stopped
 
-  #   environment:
-  #     MQTT_HOST: mqtt-broker
-  #     MQTT_PORT: 1883
+    environment:
+      MQTT_HOST: mqtt-broker
+      MQTT_PORT: 1883
 
-  #   ports:
-  #     - "8000:8000"
+    ports:
+      - "8000:8000"
 
   dashboard:
     build:

@@ -30,6 +30,10 @@ class TestServiceMetricsKey:
             "cloud-classifier",
             collector=make_mock_collector(),
         ).metrics_key == "cc_metrics"
+        assert ServiceMetrics(
+            "classifier",
+            collector=make_mock_collector(),
+        ).metrics_key == "cl_metrics"
 
     def test_unknown_service_falls_back_to_name(self):
         metrics = ServiceMetrics(

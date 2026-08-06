@@ -52,34 +52,7 @@ class SensorGeneratorStore:
                     )
                 self._trim_samples()
 
-            if "sg_metrics" in payload:
-                self.metrics = {
-                    "sg_metrics": payload.get("sg_metrics"),
-                    "received_at": now,
-                }
-                processing_time = (
-                    payload.get("sg_metrics") or {}
-                ).get("processing_time_ms")
-                if processing_time is not None:
-                    self.processing_history.append({
-                        "t": now,
-                        "processing_time_ms": processing_time,
-                    })
-                    self._trim_processing_history()
-
-                stream_interval = (
-                    payload.get("sg_metrics") or {}
-                ).get("stream_interval")
-                if (
-                    stream_interval is not None
-                    and stream_interval != self._last_stream_interval
-                ):
-                    self._last_stream_interval = stream_interval
-                    self.action_log.log(
-                        "interval",
-                        f"Stream interval set to {stream_interval:g}s",
-                    )
-
+            self._update_metrics(payload, now)
             self._update_rate()
 
     def handle_status(self, envelope: dict) -> None:
@@ -107,6 +80,39 @@ class SensorGeneratorStore:
                 self.action_log.log(
                     "fault", f"Fault scenario changed to {fault}"
                 )
+
+            self._update_metrics(payload, now)
+
+    def _update_metrics(self, payload: dict, now: float) -> None:
+        if "sg_metrics" not in payload:
+            return
+
+        self.metrics = {
+            "sg_metrics": payload.get("sg_metrics"),
+            "received_at": now,
+        }
+        processing_time = (
+            payload.get("sg_metrics") or {}
+        ).get("processing_time_ms")
+        if processing_time is not None:
+            self.processing_history.append({
+                "t": now,
+                "processing_time_ms": processing_time,
+            })
+            self._trim_processing_history()
+
+        stream_interval = (
+            payload.get("sg_metrics") or {}
+        ).get("stream_interval")
+        if (
+            stream_interval is not None
+            and stream_interval != self._last_stream_interval
+        ):
+            self._last_stream_interval = stream_interval
+            self.action_log.log(
+                "interval",
+                f"Stream interval set to {stream_interval:g}s",
+            )
 
     def channels(self) -> list[str]:
         with self._lock:

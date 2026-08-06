@@ -90,6 +90,14 @@ class TestSensorGeneratorStore:
         assert status["status"]["run"] == 1
         assert status["status"]["position"] == 42
 
+    def test_handle_status_stores_metrics(self):
+        store = SensorGeneratorStore()
+        store.handle_status(make_status_envelope(running=False))
+
+        metrics = store.get_metrics()
+        assert metrics["sg_metrics"]["stream_interval"] == 0.1
+        assert store.recent_processing_times()[0]["processing_time_ms"] == 0.4
+
     def test_channels_excludes_stream_metadata(self):
         store = SensorGeneratorStore()
         store.handle_raw(make_sample_envelope())
