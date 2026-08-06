@@ -664,19 +664,67 @@ html, body, [data-testid="stAppViewContainer"],
 }}
 
 [data-testid="stSidebar"] p,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stRadio label {{
+[data-testid="stSidebar"] label {{
     color: var(--edge-text-2) !important;
 }}
 
-[data-testid="stRadio"] label {{
-    font-size: 0.78rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    font-weight: 700;
+/* ---------- service rail: segmented bar navigation ---------- */
+
+[data-testid="stSidebar"] [data-testid="stRadio"] [data-testid="stWidgetLabel"] {{
+    display: none;
 }}
 
-[data-testid="stRadio"] > div {{ gap: 0.15rem; }}
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] {{
+    width: 100%;
+    gap: 0 !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"] {{
+    display: block;
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    margin: 0 !important;
+    border-bottom: 1px solid var(--edge-border);
+    border-left: 2px solid transparent;
+    color: var(--edge-text-2);
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:last-child {{
+    border-bottom: none;
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {{
+    background: var(--edge-panel-hover, #18212c);
+    color: var(--edge-text);
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected] {{
+    background: rgba(255, 176, 32, 0.08);
+    border-left: 2px solid var(--edge-accent);
+    color: var(--edge-accent) !important;
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"][data-focus-visible] {{
+    outline: 1px solid var(--edge-accent);
+    outline-offset: -1px;
+}}
+
+/* hide the native radio circle */
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-child > div:first-child {{
+    display: none;
+}}
+
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] p {{
+    margin: 0;
+    color: inherit;
+    font-family: var(--edge-mono);
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}}
 
 [data-testid="stButton"] button {{
     border-radius: 4px;
