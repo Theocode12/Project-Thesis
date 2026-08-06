@@ -102,6 +102,26 @@ def tile(
     )
 
 
+def metric_row(
+    label: str,
+    value_html: str,
+    sparkline_html: str,
+) -> str:
+    """Runtime metric row: label + value on the left, sparkline on the right.
+
+    Shared by every service view so runtime metrics keep identical styling
+    (see ``.edge-metric`` in ``theme.py``).
+    """
+    return (
+        '<div class="edge-metric">'
+        "<div>"
+        f'<div class="edge-metric-label">{_ESCAPE(label)}</div>'
+        f'<div class="edge-metric-value">{value_html}</div>'
+        "</div>"
+        f"{sparkline_html}</div>"
+    )
+
+
 def _panel_head(title: str, meta: str = "") -> str:
     meta_html = (
         f'<span class="edge-meta">{_ESCAPE(meta)}</span>' if meta else ""
@@ -235,4 +255,88 @@ def sparkline(
     return (
         f'<svg width="{width}" height="{height}" class="edge-spark" '
         f'viewBox="0 0 {width} {height}">{area}{stroke}</svg>'
+    )
+
+
+# --------------------------------------------------------------------------- #
+# latest diagnosis (centrepiece)
+# --------------------------------------------------------------------------- #
+
+def confidence_tone(confidence: float | None) -> str:
+    """Map a confidence fraction to an edge tone band.
+
+    Green >= 90%, amber 70-90%, red < 70%.
+    """
+    if confidence is None:
+        return "info"
+    if confidence >= 0.90:
+        return "run"
+    if confidence >= 0.70:
+        return "pause"
+    return "stop"
+
+
+def diagnosis_card(
+    fault_number,
+    diagnosis: str | None,
+    confidence: float | None,
+    ts: float | None = None,
+) -> str:
+    """Centrepiece latest-diagnosis card.
+
+    Large fault number, diagnosis code and confidence, with a colour
+    indicator (number, confidence and fill bar) driven by the confidence
+    band. Keeps a stable empty state before the first result arrives.
+    """
+    if fault_number is None and not diagnosis:
+        return (
+            '<div class="edge-diagnosis edge-diagnosis--info">'
+            '<div class="edge-diagnosis-empty">'
+            "Awaiting diagnosis result…"
+            "</div></div>"
+        )
+
+    tone = confidence_tone(confidence)
+    fault_txt = _ESCAPE(str(fault_number)) if fault_number is not None else "—"
+    diag_txt = _ESCAPE(diagnosis) if diagnosis else "—"
+    conf_txt = (
+        f"{confidence * 100.0:.0f}<small>%</small>"
+        if confidence is not None
+        else "—"
+    )
+    width = (
+        f"{max(0.0, min(1.0, confidence)) * 100.0:.1f}"
+        if confidence is not None
+        else "0"
+    )
+    time_html = (
+        f'<div class="edge-diagnosis-time">'
+        f"{format_event_time(ts)}</div>"
+        if ts
+        else ""
+    )
+
+    return (
+        f'<div class="edge-diagnosis edge-diagnosis--{tone}">'
+        '<div class="edge-diagnosis-main">'
+        '<div class="edge-diagnosis-fault">'
+        '<div class="edge-diagnosis-label">Fault</div>'
+        f'<div class="edge-diagnosis-number">{fault_txt}</div>'
+        "</div>"
+        '<div class="edge-diagnosis-detail">'
+        '<div class="edge-diagnosis-row">'
+        '<span class="edge-diagnosis-row-label">Diagnosis</span>'
+        f'<span class="edge-diagnosis-code">{diag_txt}</span>'
+        "</div>"
+        '<div class="edge-diagnosis-row">'
+        '<span class="edge-diagnosis-row-label">Confidence</span>'
+        f'<span class="edge-diagnosis-confidence">{conf_txt}</span>'
+        "</div>"
+        f"{time_html}"
+        "</div>"
+        "</div>"
+        '<div class="edge-diagnosis-bar">'
+        f'<div class="edge-diagnosis-fill" style="width:{width}%"></div>'
+        "</div>"
+        "</div>"
     )

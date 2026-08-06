@@ -275,6 +275,58 @@ class TestDiagnosisServiceStatus:
             service.stop()
 
 
+class TestDiagnosisServiceCommands:
+
+    def test_cl_start_starts_worker(self, service):
+        service._cmd_start({})
+        try:
+            assert service._started is True
+        finally:
+            service.stop()
+
+    def test_cl_stop_stops_worker(self, service):
+        service.start()
+        service._cmd_stop({})
+
+        assert service._started is False
+
+    def test_cl_reset_clears_counters(
+        self, service, mock_mqtt_service
+    ):
+        service._process("batch_x", sample_payload())
+        assert service.batch_count == 1
+        assert service.classifications_processed == 2
+
+        service._cmd_reset({})
+
+        assert service.batch_count == 0
+        assert service.classifications_processed == 0
+        assert service._last_prediction["fault_number"] is None
+        assert service._last_prediction["diagnosis"] is None
+
+    def test_handle_command_publishes_status(
+        self, service, mock_mqtt_service
+    ):
+        service.handle_command({"action": "cl_start"})
+        try:
+            topic, envelope = _last_status_call(mock_mqtt_service)
+            assert topic == MQTTOPIC.CLASSIFIER_STATUS
+            assert envelope["payload"]["status"]["running"] is True
+        finally:
+            service.stop()
+
+    def test_handle_command_unknown_action_ignored(self, service):
+        service.handle_command({"action": "nope"})
+
+        assert service._started is False
+
+    def test_handle_command_requires_payload(self, service):
+        service.handle_command(None)
+        service.handle_command({})
+
+        assert service._started is False
+
+
 def published_payload(mock_mqtt_service) -> dict:
     for call in mock_mqtt_service.publish.call_args_list:
         if call.args[0] == MQTTOPIC.CLASSIFICATION_RESULT:

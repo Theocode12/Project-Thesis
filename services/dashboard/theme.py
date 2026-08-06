@@ -355,6 +355,135 @@ html, body, [data-testid="stAppViewContainer"],
     flex: none;
 }}
 
+/* ---------- latest diagnosis card ---------- */
+
+.edge-diagnosis {{
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    padding: 0.4rem 0.1rem 0.2rem 0.1rem;
+}}
+
+.edge-diagnosis-main {{
+    display: flex;
+    align-items: center;
+    gap: 1.6rem;
+}}
+
+.edge-diagnosis-fault {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 8rem;
+}}
+
+.edge-diagnosis-label {{
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--edge-text-3);
+}}
+
+.edge-diagnosis-number {{
+    font-family: var(--edge-mono);
+    font-size: 3.4rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--edge-text);
+    letter-spacing: -0.02em;
+}}
+
+.edge-diagnosis--run .edge-diagnosis-number {{ color: var(--edge-run); }}
+.edge-diagnosis--pause .edge-diagnosis-number {{ color: var(--edge-pause); }}
+.edge-diagnosis--stop .edge-diagnosis-number {{ color: var(--edge-stop); }}
+.edge-diagnosis--info .edge-diagnosis-number {{ color: var(--edge-info); }}
+
+.edge-diagnosis-detail {{
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    border-left: 1px solid var(--edge-border);
+    padding-left: 1.4rem;
+}}
+
+.edge-diagnosis-row {{
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}}
+
+.edge-diagnosis-row-label {{
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--edge-text-3);
+}}
+
+.edge-diagnosis-code {{
+    font-family: var(--edge-mono);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--edge-text);
+    letter-spacing: 0.02em;
+}}
+
+.edge-diagnosis-confidence {{
+    font-family: var(--edge-mono);
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--edge-text);
+}}
+
+.edge-diagnosis-confidence small {{
+    font-size: 0.85rem;
+    color: var(--edge-text-3);
+    margin-left: 0.15rem;
+}}
+
+.edge-diagnosis--run .edge-diagnosis-confidence {{ color: var(--edge-run); }}
+.edge-diagnosis--pause .edge-diagnosis-confidence {{ color: var(--edge-pause); }}
+.edge-diagnosis--stop .edge-diagnosis-confidence {{ color: var(--edge-stop); }}
+.edge-diagnosis--info .edge-diagnosis-confidence {{ color: var(--edge-info); }}
+
+.edge-diagnosis-time {{
+    font-family: var(--edge-mono);
+    font-size: 0.66rem;
+    color: var(--edge-text-3);
+    letter-spacing: 0.06em;
+}}
+
+.edge-diagnosis-bar {{
+    height: 0.55rem;
+    background: var(--edge-panel-alt);
+    border: 1px solid var(--edge-border);
+    border-radius: 999px;
+    overflow: hidden;
+}}
+
+.edge-diagnosis-fill {{
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.4s ease;
+}}
+
+.edge-diagnosis--run .edge-diagnosis-fill {{ background: var(--edge-run); box-shadow: 0 0 10px rgba(46, 194, 126, 0.4); }}
+.edge-diagnosis--pause .edge-diagnosis-fill {{ background: var(--edge-pause); box-shadow: 0 0 10px rgba(245, 166, 35, 0.4); }}
+.edge-diagnosis--stop .edge-diagnosis-fill {{ background: var(--edge-stop); box-shadow: 0 0 10px rgba(239, 78, 78, 0.4); }}
+.edge-diagnosis--info .edge-diagnosis-fill {{ background: var(--edge-info); }}
+
+.edge-diagnosis-empty {{
+    padding: 1.6rem 1rem;
+    text-align: center;
+    color: var(--edge-text-3);
+    font-family: var(--edge-mono);
+    font-size: 0.78rem;
+}}
+
 /* ---------- panels ---------- */
 
 .edge-panel {{

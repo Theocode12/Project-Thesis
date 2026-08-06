@@ -75,12 +75,21 @@ class DiagnosisService:
             "diagnosis": None,
             "confidence": None,
         }
+        self._action_map = {
+            "cl_start": self._cmd_start,
+            "cl_stop": self._cmd_stop,
+            "cl_reset": self._cmd_reset,
+        }
 
     def start(self) -> None:
         if self._started:
             return
         self._started = True
         self._stop_event.clear()
+
+        self.mqtt_service.subscribe(
+            MQTTOPIC.SYSTEM_CONTROL, self.handle_command
+        )
 
         self._worker = threading.Thread(
             target=self._run,
@@ -114,6 +123,47 @@ class DiagnosisService:
 
         self._started = False
         log.info("Diagnosis worker stopped")
+
+    # ------------------------------------------------------------------
+    # MQTT command handling (system/control)
+    # ------------------------------------------------------------------
+
+    def handle_command(self, payload: dict) -> None:
+        if not payload:
+            log.warning("Received empty payload")
+            return
+
+        action = payload.get("action")
+        handler = self._action_map.get(action)
+
+        if handler is None:
+            log.warning("Unknown action: %s", action)
+            return
+
+        log.info("Handling command: %s", action)
+        handler(payload)
+        self.publish_status()
+
+    def _cmd_start(self, payload: dict) -> None:
+        self.start()
+        log.info("Classifier started via command")
+
+    def _cmd_stop(self, payload: dict) -> None:
+        self.stop()
+        log.info("Classifier stopped via command")
+
+    def _cmd_reset(self, payload: dict) -> None:
+        with self._lock:
+            self.batch_count = 0
+            self.classifications_processed = 0
+            self._completion_times.clear()
+            self._latencies.clear()
+            self._last_prediction = {
+                "fault_number": None,
+                "diagnosis": None,
+                "confidence": None,
+            }
+        log.info("Classifier statistics reset")
 
     def submit(self, payload: dict) -> str:
         batch_id = self._extract_batch_id(payload)

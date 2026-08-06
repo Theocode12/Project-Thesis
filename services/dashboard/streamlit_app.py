@@ -3,6 +3,8 @@ import streamlit as st
 import theme
 from detection_store import DetectionStore
 from detection_view import DetectionView
+from diagnosis_store import DiagnosisStore
+from diagnosis_view import DiagnosisView
 from mqtt_client import DashboardClient
 from sensor_store import SensorGeneratorStore
 from sensor_generator_view import SensorGeneratorView
@@ -21,6 +23,7 @@ theme.inject()
 VIEWS = {
     "Sensor Generator": (SensorGeneratorView, "sensor_store"),
     "Edge Detection": (DetectionView, "detection_store"),
+    "Diagnosis": (DiagnosisView, "diagnosis_store"),
 }
 
 
@@ -30,6 +33,7 @@ def _resources() -> dict:
 
     sensor_store = SensorGeneratorStore()
     detection_store = DetectionStore()
+    diagnosis_store = DiagnosisStore()
 
     client.subscribe(MQTTOPIC.SENSOR_RAW, sensor_store.handle_raw)
     client.subscribe(MQTTOPIC.SENSOR_STATUS, sensor_store.handle_status)
@@ -38,6 +42,13 @@ def _resources() -> dict:
     client.subscribe(
         MQTTOPIC.ORCHESTRATOR_DECISION, detection_store.handle_decision
     )
+    client.subscribe(MQTTOPIC.CLASSIFIER_STATUS, diagnosis_store.handle_status)
+    client.subscribe(
+        MQTTOPIC.CLASSIFICATION_RESULT, diagnosis_store.handle_result
+    )
+    client.subscribe(
+        MQTTOPIC.CLASSIFICATION_REQUEST, diagnosis_store.handle_request
+    )
 
     client.start()
 
@@ -45,6 +56,7 @@ def _resources() -> dict:
         "client": client,
         "sensor_store": sensor_store,
         "detection_store": detection_store,
+        "diagnosis_store": diagnosis_store,
     }
 
 

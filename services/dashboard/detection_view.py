@@ -140,21 +140,6 @@ def score_figure(df: pd.DataFrame, threshold: float | None) -> go.Figure:
     return fig
 
 
-def _metric_row(
-    label: str,
-    value_html: str,
-    sparkline_html: str,
-) -> str:
-    return (
-        '<div class="edge-metric">'
-        "<div>"
-        f'<div class="edge-metric-label">{label}</div>'
-        f'<div class="edge-metric-value">{value_html}</div>'
-        "</div>"
-        f"{sparkline_html}</div>"
-    )
-
-
 class DetectionView:
 
     def __init__(
@@ -319,19 +304,19 @@ class DetectionView:
         def spark_values(series: list[dict]) -> list[float]:
             return [p["value"] for p in series]
 
-        cpu_row = _metric_row(
+        cpu_row = c.metric_row(
             "CPU usage",
             _fmt_pct(cpu) if cpu is not None else "—",
             c.sparkline(spark_values(runtime["cpu"]), color=SPARK_COLORS["cpu"]),
         )
-        mem_row = _metric_row(
+        mem_row = c.metric_row(
             "Memory usage",
             _fmt_bytes(mem) if mem is not None else "—",
             c.sparkline(
                 spark_values(runtime["memory"]), color=SPARK_COLORS["memory"]
             ),
         )
-        lat_row = _metric_row(
+        lat_row = c.metric_row(
             "Avg inference time",
             _fmt_ms(latency) if latency is not None else "—",
             c.sparkline(
