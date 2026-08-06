@@ -149,6 +149,52 @@ class TestOrchestratorServiceHandleAnomaly:
 
         mock_decision_engine.add_anomaly.assert_not_called()
 
+    def test_full_envelope_flow_at_one_hz_flags_anomaly(
+        self,
+        mock_reporter,
+        mock_mqtt_service,
+        mock_metrics,
+    ):
+        from decision_engine import DecisionEngine
+
+        engine = DecisionEngine(
+            window_seconds=10.0,
+            high_ratio=0.5,
+            low_ratio=0.1,
+            fallback_stream_interval=0.1,
+        )
+        service = OrchestratorService(
+            decision_engine=engine,
+            reporter=mock_reporter,
+            mqtt_service=mock_mqtt_service,
+            metrics=mock_metrics,
+        )
+
+        envelope = {
+            "source": "edge-detector",
+            "timestamp": "2026-08-06T13:43:24+00:00",
+            "payload": {
+                "anomaly": True,
+                "reason": "threshold",
+                "metric": "reconstruction_error",
+                "value": 0.06,
+                "fault": 4,
+                "simulationRun": 476,
+                "sample": {"faultNumber": 4},
+                "sg_metrics": {"stream_interval": 1.0},
+                "ed_metrics": {},
+            },
+        }
+        for _ in range(10):
+            service.handle_anomaly(envelope)
+
+        decision = engine.evaluate()
+        assert decision["decision"] == "anomaly"
+        assert decision["sensor_rate"] == 1.0
+        assert decision["total_samples"] == 10.0
+        assert decision["anomaly_ratio"] == 1.0
+        assert decision["batch_size"] == 10
+
 
 class TestOrchestratorServiceEvaluate:
     def test_publishes_decision(

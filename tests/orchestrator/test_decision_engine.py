@@ -9,21 +9,24 @@ def make_event(
     sample=None,
 ):
     return {
-        "payload": {
-            "sample": (
-                sample
-                or {
-                    "XMEAS_1": 1.0,
-                    "faultNumber": fault,
-                    "simulationRun": 1,
-                }
-            ),
-            "sg_metrics": {
-                "stream_interval": stream_interval,
-            },
-            "fault": fault,
-            "ed_metrics": {},
-        }
+        "anomaly": True,
+        "reason": "threshold",
+        "metric": "reconstruction_error",
+        "value": 0.06,
+        "fault": fault,
+        "simulationRun": 1,
+        "sample": (
+            sample
+            or {
+                "XMEAS_1": 1.0,
+                "faultNumber": fault,
+                "simulationRun": 1,
+            }
+        ),
+        "sg_metrics": {
+            "stream_interval": stream_interval,
+        },
+        "ed_metrics": {},
     }
 
 
@@ -102,7 +105,7 @@ class TestDecisionEngineEvaluate:
 
     def test_falls_back_when_metrics_missing(self, engine):
         event = make_event()
-        event["payload"]["sg_metrics"] = {}
+        event["sg_metrics"] = {}
 
         engine.add_anomaly(event)
         decision = engine.evaluate()

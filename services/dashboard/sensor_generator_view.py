@@ -14,6 +14,11 @@ hydrate from the live generator state (status + metrics) instead of
 falling back to hardcoded defaults; the Reset button stays static at the
 top level since it never re-styles.
 
+Widget values are managed entirely through Session State (their keys are
+seeded in render() and never combined with default args on the widget
+calls), which is what lets hydration update them without triggering
+Streamlit's "created with a default value" warning.
+
 The view receives its store and client through the constructor
 (dependency injection) and builds its own controller, keeping the
 page's state and action log self-contained.
@@ -360,14 +365,9 @@ class SensorGeneratorView:
     def _render_fault(self) -> None:
         self._hydrate_stream_controls()
 
-        last_fault = st.session_state.get("last_fault", 0)
-        if not (0 <= last_fault < len(FAULTS)):
-            last_fault = 0
-
         selected_fault = st.selectbox(
             "Fault scenario",
             FAULTS,
-            index=last_fault,
             key=K_FAULT,
             help="Select a TEP fault scenario to stream.",
         )
@@ -380,11 +380,9 @@ class SensorGeneratorView:
 
         run_options = ["Auto (random)"] + [str(r) for r in RUNS]
         last_run = st.session_state.get("last_run")
-        run_index = last_run if last_run is not None and 1 <= last_run <= RUNS[-1] else 0
         selected_run = st.selectbox(
             "Run",
             run_options,
-            index=run_index,
             key=K_RUN,
             help="Pin a specific simulation run, or let the generator pick randomly.",
         )
@@ -403,12 +401,10 @@ class SensorGeneratorView:
     def _render_stream_interval(self) -> None:
         self._hydrate_interval()
 
-        last_interval = st.session_state.get("last_interval", 0.1)
         interval = st.slider(
             "Stream interval (s)",
             min_value=0.0,
             max_value=15.0,
-            value=min(15.0, max(0.0, last_interval)),
             step=0.1,
             key=K_INTERVAL,
         )
@@ -536,6 +532,10 @@ class SensorGeneratorView:
         st.session_state.setdefault("last_fault", 0)
         st.session_state.setdefault("last_run", None)
         st.session_state.setdefault("last_interval", 0.1)
+
+        st.session_state.setdefault(K_FAULT, 0)
+        st.session_state.setdefault(K_RUN, "Auto (random)")
+        st.session_state.setdefault(K_INTERVAL, 0.1)
 
         self._render_live()
 

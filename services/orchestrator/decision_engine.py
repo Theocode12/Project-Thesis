@@ -64,11 +64,10 @@ class DecisionEngine:
         sg_metrics = {}
 
         for event in events:
-            payload = event.get("payload") or {}
-            sample = payload.get("sample")
+            sample = event.get("sample")
             if sample is not None:
                 batch.append(sample)
-            event_sg = payload.get("sg_metrics") or {}
+            event_sg = event.get("sg_metrics") or {}
             if event_sg:
                 sg_metrics = event_sg
             interval = event_sg.get("stream_interval")

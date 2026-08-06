@@ -64,6 +64,10 @@ def _fmt_pct(num: float) -> str:
     return f"{num:.3g}<small>%</small>"
 
 
+def _fmt_ms(num: float) -> str:
+    return f"{num:.3g}<small>ms</small>"
+
+
 def scores_dataframe(scores: list[dict]) -> pd.DataFrame:
     df = pd.DataFrame([
         {"t": point["t"], "value": point["value"], "anomaly": point["anomaly"]}
@@ -329,7 +333,7 @@ class DetectionView:
         )
         lat_row = _metric_row(
             "Avg inference time",
-            f"{latency:.1f}<small>ms</small>" if latency is not None else "—",
+            _fmt_ms(latency) if latency is not None else "—",
             c.sparkline(
                 spark_values(runtime["latency"]), color=SPARK_COLORS["latency"]
             ),
