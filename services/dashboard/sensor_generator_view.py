@@ -9,15 +9,17 @@ multiselects) live at the top level so they respond to clicks reliably.
 The read-only display (metrics, chart, timeline) is wrapped in fragments
 that re-run every 0.5s. State-driven controls (Start/Stop buttons, fault
 and run selects, interval slider) run inside a 1s fragment so their active
-styling tracks the live MQTT status and, on a fresh visitor session, they
-hydrate from the live generator state (status + metrics) instead of
-falling back to hardcoded defaults; the Reset button stays static at the
+styling tracks the live MQTT status; the Reset button stays static at the
 top level since it never re-styles.
 
 Widget values are managed entirely through Session State (their keys are
-seeded in render() and never combined with default args on the widget
-calls), which is what lets hydration update them without triggering
-Streamlit's "created with a default value" warning.
+never combined with default args on the widget calls, which avoids
+Streamlit's "created with a default value" warning). Because Streamlit
+deletes a keyed widget's state whenever the widget is not rendered
+(e.g. switching service views), the durable `last_*` keys hold the source
+of truth: on every entry the widget keys are re-seeded from them, controls
+the user has explicitly set keep their choice, and untouched controls keep
+tracking the live generator state.
 
 The view receives its store and client through the constructor
 (dependency injection) and builds its own controller, keeping the
@@ -318,36 +320,52 @@ class SensorGeneratorView:
         if st.button("Reset", key="btn_reset", width="stretch"):
             self.controller.send_reset()
 
-    def _hydrate_stream_controls(self) -> None:
-        """Seed fault/run widgets from live generator state once.
+    @staticmethod
+    def _run_label(run: int | None) -> str:
+        return str(run) if run is not None else "Auto (random)"
 
-        Runs before the widgets are instantiated and retries until status
-        data is available. Skipped once hydrated or the user has interacted.
+    def _sync_stream_controls(self) -> None:
+        """Keep fault/run widgets consistent with user choices and live state.
+
+        Streamlit deletes a keyed widget's Session State value whenever the
+        widget is not rendered (e.g. switching to another service view), so
+        on every entry the widget keys are re-seeded from the durable last_*
+        values. As long as a control has not been explicitly set by the user
+        it also tracks the live generator status; once the user takes
+        control, their choice wins and is never overwritten.
         """
-        if st.session_state.get("vsg_stream_hydrated"):
-            return
+        if K_FAULT not in st.session_state:
+            st.session_state[K_FAULT] = st.session_state.get("last_fault", 0)
+        if K_RUN not in st.session_state:
+            st.session_state[K_RUN] = self._run_label(
+                st.session_state.get("last_run")
+            )
 
         status = (self.store.get_status() or {}).get("status") or {}
         fault = status.get("fault")
         run = status.get("run")
 
-        if fault is None:
-            return
-
-        st.session_state["last_fault"] = fault
-        st.session_state[K_FAULT] = fault
-        if run is not None:
+        if not st.session_state.get("vsg_fault_choice") and fault is not None:
+            st.session_state["last_fault"] = fault
+            st.session_state[K_FAULT] = fault
+        if not st.session_state.get("vsg_run_choice") and run is not None:
             st.session_state["last_run"] = run
             st.session_state[K_RUN] = str(run)
-        st.session_state["vsg_stream_hydrated"] = True
 
-    def _hydrate_interval(self) -> None:
-        """Seed the interval slider from live metrics once.
+    def _sync_interval(self) -> None:
+        """Seed the interval slider from live metrics (or the user's choice).
 
-        Status messages now carry sg_metrics, so the interval is available
-        even when the generator is paused.
+        Metrics are available from status messages even when the generator is
+        paused. The widget key is re-seeded from last_interval whenever it was
+        dropped, and the value keeps tracking live metrics until the user
+        takes control of the slider.
         """
-        if st.session_state.get("vsg_interval_hydrated"):
+        if K_INTERVAL not in st.session_state:
+            st.session_state[K_INTERVAL] = st.session_state.get(
+                "last_interval", 0.1
+            )
+
+        if st.session_state.get("vsg_interval_choice"):
             return
 
         metrics = self.store.get_metrics() or {}
@@ -359,11 +377,10 @@ class SensorGeneratorView:
         interval = min(15.0, max(0.0, float(interval)))
         st.session_state["last_interval"] = interval
         st.session_state[K_INTERVAL] = interval
-        st.session_state["vsg_interval_hydrated"] = True
 
     @st.fragment(run_every=1.0)
     def _render_fault(self) -> None:
-        self._hydrate_stream_controls()
+        self._sync_stream_controls()
 
         selected_fault = st.selectbox(
             "Fault scenario",
@@ -376,10 +393,10 @@ class SensorGeneratorView:
             st.session_state["last_fault"] = selected_fault
             st.session_state["last_run"] = None
             st.session_state[K_RUN] = "Auto (random)"
-            st.session_state["vsg_stream_hydrated"] = True
+            st.session_state["vsg_fault_choice"] = True
+            st.session_state["vsg_run_choice"] = True
 
         run_options = ["Auto (random)"] + [str(r) for r in RUNS]
-        last_run = st.session_state.get("last_run")
         selected_run = st.selectbox(
             "Run",
             run_options,
@@ -391,15 +408,14 @@ class SensorGeneratorView:
             if st.session_state.get("last_run") != pinned_run:
                 self.controller.send_set_stream(selected_fault, pinned_run)
                 st.session_state["last_run"] = pinned_run
-            st.session_state["vsg_stream_hydrated"] = True
+            st.session_state["vsg_run_choice"] = True
         else:
-            if st.session_state.get("last_run") is not None:
-                st.session_state["vsg_stream_hydrated"] = True
             st.session_state["last_run"] = None
+            st.session_state["vsg_run_choice"] = True
 
     @st.fragment(run_every=1.0)
     def _render_stream_interval(self) -> None:
-        self._hydrate_interval()
+        self._sync_interval()
 
         interval = st.slider(
             "Stream interval (s)",
@@ -411,7 +427,7 @@ class SensorGeneratorView:
         if st.session_state.get("last_interval") != interval:
             self.controller.send_set_stream_interval(interval)
             st.session_state["last_interval"] = interval
-            st.session_state["vsg_interval_hydrated"] = True
+            st.session_state["vsg_interval_choice"] = True
         st.caption("Delay between published samples.")
 
     def _render_chart_pickers(self) -> None:
@@ -423,22 +439,28 @@ class SensorGeneratorView:
             st.caption("Waiting for sensor data before variables can be plotted…")
             return
 
-        last_xmeas = [ch for ch in st.session_state.get("last_xmeas", []) if ch in xmeas]
-        last_xmv = [ch for ch in st.session_state.get("last_xmv", []) if ch in xmv]
+        if K_XMEAS not in st.session_state:
+            last_xmeas = [
+                ch for ch in st.session_state.get("last_xmeas", []) if ch in xmeas
+            ]
+            st.session_state[K_XMEAS] = last_xmeas or xmeas[:6]
+        if K_XMV not in st.session_state:
+            last_xmv = [
+                ch for ch in st.session_state.get("last_xmv", []) if ch in xmv
+            ]
+            st.session_state[K_XMV] = last_xmv or xmv[:3]
 
         cx, cm = st.columns(2)
         with cx:
             picked_xmeas = st.multiselect(
                 "Measured variables (xmeas)",
                 xmeas,
-                default=last_xmeas or xmeas[:6],
                 key=K_XMEAS,
             )
         with cm:
             picked_xmv = st.multiselect(
                 "Manipulated variables (xmv)",
                 xmv,
-                default=last_xmv or xmv[:3],
                 key=K_XMV,
             )
 
@@ -532,10 +554,6 @@ class SensorGeneratorView:
         st.session_state.setdefault("last_fault", 0)
         st.session_state.setdefault("last_run", None)
         st.session_state.setdefault("last_interval", 0.1)
-
-        st.session_state.setdefault(K_FAULT, 0)
-        st.session_state.setdefault(K_RUN, "Auto (random)")
-        st.session_state.setdefault(K_INTERVAL, 0.1)
 
         self._render_live()
 
