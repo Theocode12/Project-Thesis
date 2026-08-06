@@ -14,12 +14,14 @@ top level since it never re-styles.
 
 Widget values are managed entirely through Session State (their keys are
 never combined with default args on the widget calls, which avoids
-Streamlit's "created with a default value" warning). Because Streamlit
-deletes a keyed widget's state whenever the widget is not rendered
-(e.g. switching service views), the durable `last_*` keys hold the source
-of truth: on every entry the widget keys are re-seeded from them, controls
-the user has explicitly set keep their choice, and untouched controls keep
-tracking the live generator state.
+Streamlit's "created with a default value" warning). User edits are
+captured by `on_change` callbacks, which Streamlit fires before the widget
+body re-runs, so a live sync pass can never overwrite an in-flight choice.
+Because Streamlit deletes a keyed widget's state whenever the widget is not
+rendered (e.g. switching service views), the durable `last_*` keys hold the
+source of truth: on every render the widget keys are reconciled to them,
+controls the user has explicitly set keep their choice, and untouched
+controls keep tracking the live generator state.
 
 The view receives its store and client through the constructor
 (dependency injection) and builds its own controller, keeping the
@@ -325,109 +327,137 @@ class SensorGeneratorView:
         return str(run) if run is not None else "Auto (random)"
 
     def _sync_stream_controls(self) -> None:
-        """Keep fault/run widgets consistent with user choices and live state.
+        """Reconcile fault/run widget keys with the authoritative value.
 
         Streamlit deletes a keyed widget's Session State value whenever the
         widget is not rendered (e.g. switching to another service view), so
-        on every entry the widget keys are re-seeded from the durable last_*
-        values. As long as a control has not been explicitly set by the user
-        it also tracks the live generator status; once the user takes
-        control, their choice wins and is never overwritten.
+        on every render the widget keys are re-derived here. The
+        authoritative value is the user's explicit choice once they have
+        taken control; otherwise it is the live generator status, falling
+        back to the last known values. User edits are captured by the
+        on_change callbacks (which run before this body), so this pass never
+        overwrites an in-flight change.
         """
-        if K_FAULT not in st.session_state:
-            st.session_state[K_FAULT] = st.session_state.get("last_fault", 0)
-        if K_RUN not in st.session_state:
-            st.session_state[K_RUN] = self._run_label(
-                st.session_state.get("last_run")
-            )
-
         status = (self.store.get_status() or {}).get("status") or {}
-        fault = status.get("fault")
-        run = status.get("run")
+        store_fault = status.get("fault")
+        store_run = status.get("run")
 
-        if not st.session_state.get("vsg_fault_choice") and fault is not None:
+        if st.session_state.get("vsg_fault_choice"):
+            fault = st.session_state.get("last_fault", 0)
+        elif store_fault is not None:
+            fault = store_fault
             st.session_state["last_fault"] = fault
+        else:
+            fault = st.session_state.get("last_fault", 0)
+
+        if st.session_state.get(K_FAULT) != fault:
             st.session_state[K_FAULT] = fault
-        if not st.session_state.get("vsg_run_choice") and run is not None:
-            st.session_state["last_run"] = run
-            st.session_state[K_RUN] = str(run)
+
+        if st.session_state.get("vsg_run_choice"):
+            run_label = self._run_label(st.session_state.get("last_run"))
+        elif store_run is not None:
+            st.session_state["last_run"] = store_run
+            run_label = str(store_run)
+        else:
+            run_label = self._run_label(st.session_state.get("last_run"))
+
+        if st.session_state.get(K_RUN) != run_label:
+            st.session_state[K_RUN] = run_label
+
+    def _on_fault_change(self) -> None:
+        """Send the fault command for a user-driven selectbox change."""
+        selected = st.session_state.get(K_FAULT)
+        if selected is None or selected == st.session_state.get("last_fault"):
+            return
+        self.controller.send_set_fault(selected)
+        st.session_state["last_fault"] = selected
+        st.session_state["last_run"] = None
+        st.session_state[K_RUN] = "Auto (random)"
+        st.session_state["vsg_fault_choice"] = True
+        st.session_state["vsg_run_choice"] = True
+
+    def _on_run_change(self) -> None:
+        """Send the stream command for a user-driven run selectbox change."""
+        selected = st.session_state.get(K_RUN)
+        if selected is None:
+            return
+        st.session_state["vsg_run_choice"] = True
+        if selected != "Auto (random)":
+            pinned_run = int(selected)
+            if pinned_run != st.session_state.get("last_run"):
+                fault = st.session_state.get(K_FAULT, 0)
+                self.controller.send_set_stream(fault, pinned_run)
+                st.session_state["last_run"] = pinned_run
+        else:
+            st.session_state["last_run"] = None
 
     def _sync_interval(self) -> None:
-        """Seed the interval slider from live metrics (or the user's choice).
+        """Reconcile the interval slider with the authoritative value.
 
         Metrics are available from status messages even when the generator is
-        paused. The widget key is re-seeded from last_interval whenever it was
-        dropped, and the value keeps tracking live metrics until the user
+        paused. The widget key is re-derived from last_interval whenever it
+        was dropped, and the value keeps tracking live metrics until the user
         takes control of the slider.
         """
-        if K_INTERVAL not in st.session_state:
-            st.session_state[K_INTERVAL] = st.session_state.get(
-                "last_interval", 0.1
-            )
-
         if st.session_state.get("vsg_interval_choice"):
-            return
+            target = st.session_state.get("last_interval", 0.1)
+        else:
+            metrics = self.store.get_metrics() or {}
+            sg = metrics.get("sg_metrics") or {}
+            interval = sg.get("stream_interval")
+            if interval is not None:
+                interval = min(15.0, max(0.0, float(interval)))
+                st.session_state["last_interval"] = interval
+                target = interval
+            else:
+                target = st.session_state.get("last_interval", 0.1)
 
-        metrics = self.store.get_metrics() or {}
-        sg = metrics.get("sg_metrics") or {}
-        interval = sg.get("stream_interval")
+        if st.session_state.get(K_INTERVAL) != target:
+            st.session_state[K_INTERVAL] = target
+
+    def _on_interval_change(self) -> None:
+        """Send the interval command for a user-driven slider change."""
+        interval = st.session_state.get(K_INTERVAL)
         if interval is None:
             return
-
-        interval = min(15.0, max(0.0, float(interval)))
-        st.session_state["last_interval"] = interval
-        st.session_state[K_INTERVAL] = interval
+        if interval != st.session_state.get("last_interval"):
+            self.controller.send_set_stream_interval(interval)
+            st.session_state["last_interval"] = interval
+        st.session_state["vsg_interval_choice"] = True
 
     @st.fragment(run_every=1.0)
     def _render_fault(self) -> None:
         self._sync_stream_controls()
 
-        selected_fault = st.selectbox(
+        st.selectbox(
             "Fault scenario",
             FAULTS,
             key=K_FAULT,
             help="Select a TEP fault scenario to stream.",
+            on_change=self._on_fault_change,
         )
-        if st.session_state.get("last_fault") != selected_fault:
-            self.controller.send_set_fault(selected_fault)
-            st.session_state["last_fault"] = selected_fault
-            st.session_state["last_run"] = None
-            st.session_state[K_RUN] = "Auto (random)"
-            st.session_state["vsg_fault_choice"] = True
-            st.session_state["vsg_run_choice"] = True
 
         run_options = ["Auto (random)"] + [str(r) for r in RUNS]
-        selected_run = st.selectbox(
+        st.selectbox(
             "Run",
             run_options,
             key=K_RUN,
             help="Pin a specific simulation run, or let the generator pick randomly.",
+            on_change=self._on_run_change,
         )
-        if selected_run != "Auto (random)":
-            pinned_run = int(selected_run)
-            if st.session_state.get("last_run") != pinned_run:
-                self.controller.send_set_stream(selected_fault, pinned_run)
-                st.session_state["last_run"] = pinned_run
-            st.session_state["vsg_run_choice"] = True
-        else:
-            st.session_state["last_run"] = None
-            st.session_state["vsg_run_choice"] = True
 
     @st.fragment(run_every=1.0)
     def _render_stream_interval(self) -> None:
         self._sync_interval()
 
-        interval = st.slider(
+        st.slider(
             "Stream interval (s)",
             min_value=0.0,
             max_value=15.0,
             step=0.1,
             key=K_INTERVAL,
+            on_change=self._on_interval_change,
         )
-        if st.session_state.get("last_interval") != interval:
-            self.controller.send_set_stream_interval(interval)
-            st.session_state["last_interval"] = interval
-            st.session_state["vsg_interval_choice"] = True
         st.caption("Delay between published samples.")
 
     def _render_chart_pickers(self) -> None:
@@ -439,35 +469,45 @@ class SensorGeneratorView:
             st.caption("Waiting for sensor data before variables can be plotted…")
             return
 
-        if K_XMEAS not in st.session_state:
-            last_xmeas = [
-                ch for ch in st.session_state.get("last_xmeas", []) if ch in xmeas
-            ]
-            st.session_state[K_XMEAS] = last_xmeas or xmeas[:6]
-        if K_XMV not in st.session_state:
-            last_xmv = [
-                ch for ch in st.session_state.get("last_xmv", []) if ch in xmv
-            ]
-            st.session_state[K_XMV] = last_xmv or xmv[:3]
+        self._sync_chart_pickers(xmeas, xmv)
 
         cx, cm = st.columns(2)
         with cx:
-            picked_xmeas = st.multiselect(
+            st.multiselect(
                 "Measured variables (xmeas)",
                 xmeas,
                 key=K_XMEAS,
+                on_change=self._on_xmeas_change,
             )
         with cm:
-            picked_xmv = st.multiselect(
+            st.multiselect(
                 "Manipulated variables (xmv)",
                 xmv,
                 key=K_XMV,
+                on_change=self._on_xmv_change,
             )
 
-        if picked_xmeas != st.session_state.get("last_xmeas"):
-            st.session_state["last_xmeas"] = picked_xmeas
-        if picked_xmv != st.session_state.get("last_xmv"):
-            st.session_state["last_xmv"] = picked_xmv
+    def _sync_chart_pickers(self, xmeas: list[str], xmv: list[str]) -> None:
+        """Reconcile chart pickers with the last user selection.
+
+        The durable last_* keys survive view switches; the widget keys do
+        not, so they are re-derived here every render.
+        """
+        last = st.session_state.get("last_xmeas")
+        target = xmeas[:6] if last is None else [ch for ch in last if ch in xmeas]
+        if st.session_state.get(K_XMEAS) != target:
+            st.session_state[K_XMEAS] = target
+
+        last = st.session_state.get("last_xmv")
+        target = xmv[:3] if last is None else [ch for ch in last if ch in xmv]
+        if st.session_state.get(K_XMV) != target:
+            st.session_state[K_XMV] = target
+
+    def _on_xmeas_change(self) -> None:
+        st.session_state["last_xmeas"] = st.session_state.get(K_XMEAS, [])
+
+    def _on_xmv_change(self) -> None:
+        st.session_state["last_xmv"] = st.session_state.get(K_XMV, [])
 
     # --------------------------------------------------------------------- #
     # read-only display fragments (safe to re-run every 0.5s)
