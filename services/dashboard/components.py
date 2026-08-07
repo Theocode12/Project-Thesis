@@ -36,6 +36,27 @@ def format_count(value: int) -> str:
     return f"{value:,}"
 
 
+def format_bytes(num: float, decimal: bool = False) -> str:
+    """Auto-format a byte count using binary (or decimal) units.
+
+    Returns the value already scaled to its unit (e.g. ``825 KB`` or
+    ``2.6 MB``) so callers can render it as plain text or wrap it
+    themselves. Raw byte counts are never returned.
+    """
+    value = float(num)
+    if value < 0:
+        return "0 B"
+    divisor = 1000.0 if decimal else 1024.0
+    units = ("B", "KB", "MB", "GB", "TB")
+    unit = units[0]
+    for unit in units:
+        if value < divisor or unit == units[-1]:
+            break
+        value /= divisor
+    scaled = f"{value:.1f}".rstrip("0").rstrip(".")
+    return f"{scaled} {unit}"
+
+
 # --------------------------------------------------------------------------- #
 # primitives
 # --------------------------------------------------------------------------- #
