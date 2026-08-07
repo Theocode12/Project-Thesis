@@ -15,7 +15,7 @@ class MQTTService:
 
     def __init__(self, config: MQTTConfig) -> None:
         self.config = config
-        self.callbacks: dict[str, Callable[[dict], Any]] = {}
+        self.callbacks: dict[str, list[Callable[[dict], Any]]] = {}
         self.client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             client_id=config.client_id,
@@ -74,7 +74,7 @@ class MQTTService:
             log.error("Failed to publish to %s | reason=%s", topic.value, result.rc)
 
     def subscribe(self, topic: str, callback: Callable[[dict], Any]) -> None:
-        self.callbacks[topic] = callback
+        self.callbacks.setdefault(topic, []).append(callback)
         self.client.subscribe(topic)
         log.info("Subscribed to %s", topic)
 
@@ -112,4 +112,5 @@ class MQTTService:
 
         log.debug("Received message on %s | payload=%s", topic, payload)
 
-        self.callbacks[topic](payload)
+        for callback in self.callbacks.get(topic, ()):
+            callback(payload)
