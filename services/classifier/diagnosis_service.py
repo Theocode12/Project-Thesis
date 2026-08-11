@@ -210,6 +210,7 @@ class DiagnosisService:
         queue_depth = self._queue.qsize()
 
         inference_ms = None
+        inference_per_classification_ms = None
         try:
             inference_started = time.perf_counter()
             prediction = self.classifier.predict(batch)
@@ -217,6 +218,11 @@ class DiagnosisService:
                 (time.perf_counter() - inference_started) * 1000.0,
                 3,
             )
+            if inference_ms is not None and batch:
+                inference_per_classification_ms = round(
+                    inference_ms / len(batch),
+                    6,
+                )
         except Exception:
             log.exception(
                 "Classification failed | batch_id=%s",
@@ -239,6 +245,9 @@ class DiagnosisService:
             "batch_id": batch_id,
             "batch_size": len(batch),
             "inference_ms": inference_ms,
+            "inference_per_classification_ms": (
+                inference_per_classification_ms
+            ),
             "queue_wait_ms": queue_wait_ms,
             "queue_depth": queue_depth,
             "model": prediction.get("model"),
@@ -254,7 +263,7 @@ class DiagnosisService:
 
         self._record_batch(
             len(batch),
-            metrics_snapshot.get("processing_time_ms"),
+            inference_per_classification_ms,
         )
         self._last_prediction = {
             "fault_number": prediction.get("fault_number"),
