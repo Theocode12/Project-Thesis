@@ -35,6 +35,10 @@ AVG_COLOR = "#93a1b1"
 
 _MB = 1024.0 * 1024.0
 
+# Recent window (seconds) shown by the detection/diagnosis latency overlay so a
+# stale stream can no longer stretch the shared time axis.
+LATENCY_OVERLAY_WINDOW = 600.0
+
 
 # --------------------------------------------------------------------------- #
 # dataframes
@@ -74,6 +78,22 @@ def _x_range(*series: list[dict]):
     ]
 
 
+def _recent_window(
+    *series: list[dict],
+    window_seconds: float = LATENCY_OVERLAY_WINDOW,
+):
+    """Rolling x-range anchored to the newest data point across all series."""
+    times = [point["t"] for s in series for point in s]
+    if not times:
+        return None
+    hi = max(times)
+    pad = max(5.0, window_seconds * 0.02)
+    return [
+        datetime.fromtimestamp(hi - window_seconds, UTC),
+        datetime.fromtimestamp(hi + pad, UTC),
+    ]
+
+
 # --------------------------------------------------------------------------- #
 # figure builders
 # --------------------------------------------------------------------------- #
@@ -81,6 +101,8 @@ def _x_range(*series: list[dict]):
 def configure_layout(
     fig: go.Figure,
     y_title: str = "",
+    y2_title: str = "",
+    y2_color: str = "",
     x_range=None,
     legend: bool = True,
     height: int = 300,
@@ -94,37 +116,62 @@ def configure_layout(
     }
     if x_range is not None:
         xaxis["range"] = x_range
-    fig.update_layout(
-        height=height,
-        margin={"l": 8, "r": 8, "t": 8, "b": 8},
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(0,0,0,0)",
-        font={"family": MONO, "color": "#93a1b1", "size": 11},
-        xaxis=xaxis,
-        yaxis={
+    layout = {
+        "height": height,
+        "paper_bgcolor": "rgba(0,0,0,0)",
+        "plot_bgcolor": "rgba(0,0,0,0)",
+        "font": {"family": MONO, "color": "#93a1b1", "size": 11},
+        "xaxis": xaxis,
+        "yaxis": {
             "gridcolor": "#1d2731",
             "zeroline": False,
             "showline": False,
             "title": y_title or None,
         },
-        hovermode="x unified",
-        hoverlabel={
+        "hovermode": "x unified",
+        "hoverlabel": {
             "bgcolor": "#151c25",
             "bordercolor": "#2b3a48",
             "font": {"family": MONO, "color": "#e8eef5", "size": 11},
         },
-        legend={
+        "legend": {
             "orientation": "h",
             "y": 1.08,
             "x": 0,
             "font": {"family": MONO, "color": "#93a1b1", "size": 10},
         },
-        showlegend=legend,
-    )
+        "showlegend": legend,
+    }
+    if y2_title:
+        title = {
+            "text": y2_title,
+            "font": {"family": MONO, "size": 10},
+        }
+        if y2_color:
+            title["font"]["color"] = y2_color
+        layout["yaxis2"] = {
+            "title": title,
+            "side": "right",
+            "overlaying": "y",
+            "gridcolor": "rgba(0,0,0,0)",
+            "zeroline": False,
+            "showline": False,
+            "tickfont": {"family": MONO, "size": 10, "color": "#93a1b1"},
+        }
+        layout["margin"] = {"l": 8, "r": 24, "t": 8, "b": 8}
+    else:
+        layout["margin"] = {"l": 8, "r": 8, "t": 8, "b": 8}
+    fig.update_layout(**layout)
     return fig
 
 
-def _latency_trace(fig: go.Figure, df: pd.DataFrame, name: str, color: str) -> None:
+def _latency_trace(
+    fig: go.Figure,
+    df: pd.DataFrame,
+    name: str,
+    color: str,
+    yaxis: str = "y",
+) -> None:
     """Add a solid latency line plus its dashed rolling-average line."""
     if df.empty:
         return
@@ -135,6 +182,7 @@ def _latency_trace(fig: go.Figure, df: pd.DataFrame, name: str, color: str) -> N
         name=name,
         line={"width": 1.6, "color": color},
         hovertemplate="%{y:.1f} ms<extra></extra>",
+        yaxis=yaxis,
     ))
     window = max(2, min(20, len(df) // 4))
     if window > 2:
@@ -146,6 +194,7 @@ def _latency_trace(fig: go.Figure, df: pd.DataFrame, name: str, color: str) -> N
             name=f"{name} · {window}-pt avg",
             line={"width": 1.1, "color": AVG_COLOR, "dash": "dot"},
             hovertemplate="%{y:.1f} ms<extra></extra>",
+            yaxis=yaxis,
         ))
 
 
@@ -162,13 +211,18 @@ def latency_figure(
 def dual_latency_figure(
     det_df: pd.DataFrame,
     diag_df: pd.DataFrame,
-    y_title: str = "latency (ms)",
     x_range=None,
 ) -> go.Figure:
     fig = go.Figure()
-    _latency_trace(fig, det_df, "Detection", EDGE_CPU_COLOR)
-    _latency_trace(fig, diag_df, "Diagnosis", CLOUD_CPU_COLOR)
-    return configure_layout(fig, y_title=y_title, x_range=x_range)
+    _latency_trace(fig, det_df, "Detection", EDGE_CPU_COLOR, yaxis="y")
+    _latency_trace(fig, diag_df, "Diagnosis", CLOUD_CPU_COLOR, yaxis="y2")
+    return configure_layout(
+        fig,
+        y_title="detection latency (ms)",
+        y2_title="diagnosis latency (ms)",
+        y2_color=CLOUD_CPU_COLOR,
+        x_range=x_range,
+    )
 
 
 def resource_figure(
@@ -259,6 +313,27 @@ def _fmt_mb(num) -> str:
 
 def _now_str() -> str:
     return datetime.now(UTC).strftime("%H:%M:%S")
+
+
+def _latency_span_readout(det_points: list[dict], diag_points: list[dict]) -> str:
+    """Temporary diagnostic: raw span/magnitude of each latency stream.
+
+    Used to verify the overlay fix on the live run. Remove once confirmed.
+    """
+    def _desc(points: list[dict], label: str) -> str:
+        if not points:
+            return f"{label}: 0 pts"
+        ms = [p["ms"] for p in points]
+        newest = max(p["t"] for p in points)
+        oldest = min(p["t"] for p in points)
+        age = newest - oldest
+        return (
+            f"{label}: {len(points)} pts · "
+            f"t {age/60.0:.1f}m span · ms {min(ms):.1f}→{max(ms):.1f}"
+        )
+    return " · ".join(
+        (_desc(det_points, "det"), _desc(diag_points, "diag"))
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -501,12 +576,12 @@ class OverviewView:
                     dual_latency_figure(
                         _latency_df(det_points),
                         _latency_df(diag_points),
-                        y_title="latency (ms)",
-                        x_range=_x_range(det_points, diag_points),
+                        x_range=_recent_window(det_points, diag_points),
                     ),
                     width="stretch",
                     config=chart_config("overview_det_diag_latency"),
                 )
+                st.caption(_latency_span_readout(det_points, diag_points))
                 self._render_tile_group(
                     "Detection",
                     EDGE_CPU_COLOR,
@@ -832,8 +907,7 @@ class OverviewView:
             "det_diag_latency": lambda: dual_latency_figure(
                 _latency_df(lat["detection"]),
                 _latency_df(lat["diagnosis"]),
-                y_title="latency (ms)",
-                x_range=_x_range(lat["detection"], lat["diagnosis"]),
+                x_range=_recent_window(lat["detection"], lat["diagnosis"]),
             ),
             "detection_latency": lambda: latency_figure(
                 _latency_df(lat["detection"]),
