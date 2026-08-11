@@ -790,6 +790,7 @@ html, body, [data-testid="stAppViewContainer"],
     color: var(--edge-accent);
 }}
 
+.st-key-ov_graph_mode button[kind="iconActive"],
 .st-key-ov_graph_mode button[kind="segmented_controlActive"],
 .st-key-ov_graph_mode button[data-selected] {{
     background: rgba(255, 176, 32, 0.12);
@@ -797,6 +798,7 @@ html, body, [data-testid="stAppViewContainer"],
     color: var(--edge-accent);
 }}
 
+.st-key-ov_graph_mode button[kind="iconActive"]:hover,
 .st-key-ov_graph_mode button[kind="segmented_controlActive"]:hover,
 .st-key-ov_graph_mode button[data-selected]:hover {{
     background: rgba(255, 176, 32, 0.2);
