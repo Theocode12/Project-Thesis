@@ -124,33 +124,51 @@ def configure_layout(
     return fig
 
 
+def _latency_trace(fig: go.Figure, df: pd.DataFrame, name: str, color: str) -> None:
+    """Add a solid latency line plus its dashed rolling-average line."""
+    if df.empty:
+        return
+    fig.add_trace(go.Scatter(
+        x=df["t"],
+        y=df["ms"],
+        mode="lines",
+        name=name,
+        line={"width": 1.6, "color": color},
+        hovertemplate="%{y:.1f} ms<extra></extra>",
+    ))
+    window = max(2, min(20, len(df) // 4))
+    if window > 2:
+        avg = df["ms"].rolling(window).mean()
+        fig.add_trace(go.Scatter(
+            x=df["t"],
+            y=avg,
+            mode="lines",
+            name=f"{name} · {window}-pt avg",
+            line={"width": 1.1, "color": AVG_COLOR, "dash": "dot"},
+            hovertemplate="%{y:.1f} ms<extra></extra>",
+        ))
+
+
 def latency_figure(
     df: pd.DataFrame,
     color: str = LATENCY_COLOR,
     y_title: str = "latency (ms)",
 ) -> go.Figure:
     fig = go.Figure()
-    if not df.empty:
-        fig.add_trace(go.Scatter(
-            x=df["t"],
-            y=df["ms"],
-            mode="lines",
-            name="latency",
-            line={"width": 1.6, "color": color},
-            hovertemplate="%{y:.1f} ms<extra></extra>",
-        ))
-        window = max(2, min(20, len(df) // 4))
-        if window > 2:
-            avg = df["ms"].rolling(window).mean()
-            fig.add_trace(go.Scatter(
-                x=df["t"],
-                y=avg,
-                mode="lines",
-                name=f"{window}-pt avg",
-                line={"width": 1.1, "color": AVG_COLOR, "dash": "dot"},
-                hovertemplate="%{y:.1f} ms<extra></extra>",
-            ))
+    _latency_trace(fig, df, "latency", color)
     return configure_layout(fig, y_title=y_title)
+
+
+def dual_latency_figure(
+    det_df: pd.DataFrame,
+    diag_df: pd.DataFrame,
+    y_title: str = "latency (ms)",
+    x_range=None,
+) -> go.Figure:
+    fig = go.Figure()
+    _latency_trace(fig, det_df, "Detection", EDGE_CPU_COLOR)
+    _latency_trace(fig, diag_df, "Diagnosis", CLOUD_CPU_COLOR)
+    return configure_layout(fig, y_title=y_title, x_range=x_range)
 
 
 def resource_figure(
@@ -169,6 +187,39 @@ def resource_figure(
             mode="lines",
             name=name,
             line={"width": 1.5, "color": color},
+            hovertemplate="%{y:.2f}<extra></extra>",
+        ))
+    return configure_layout(fig, y_title=y_title, x_range=x_range, height=height)
+
+
+def dual_resource_figure(
+    edge_df: pd.DataFrame,
+    cloud_df: pd.DataFrame,
+    y_title: str,
+    name_edge: str,
+    color_edge: str,
+    name_cloud: str,
+    color_cloud: str,
+    x_range=None,
+    height: int = 260,
+) -> go.Figure:
+    fig = go.Figure()
+    if not edge_df.empty:
+        fig.add_trace(go.Scatter(
+            x=edge_df["t"],
+            y=edge_df["y"],
+            mode="lines",
+            name=name_edge,
+            line={"width": 1.5, "color": color_edge},
+            hovertemplate="%{y:.2f}<extra></extra>",
+        ))
+    if not cloud_df.empty:
+        fig.add_trace(go.Scatter(
+            x=cloud_df["t"],
+            y=cloud_df["y"],
+            mode="lines",
+            name=name_cloud,
+            line={"width": 1.5, "color": color_cloud},
             hovertemplate="%{y:.2f}<extra></extra>",
         ))
     return configure_layout(fig, y_title=y_title, x_range=x_range, height=height)
@@ -409,52 +460,112 @@ class OverviewView:
             if row[1].button("Expand", key=f"btn_expand_{slug}", width="stretch"):
                 st.session_state["ov_modal"] = slug
 
-    def _render_latency_section(self) -> None:
+    @staticmethod
+    def _render_tile_group(
+        label: str,
+        color: str,
+        tiles: list[tuple[str, str, str, str]],
+    ) -> None:
+        st.markdown(
+            f'<div class="edge-meta" style="margin-bottom:0.3rem">'
+            f'<span style="color:{color}">●</span> {label}</div>',
+            unsafe_allow_html=True,
+        )
+        cols = st.columns(3)
+        for col, (tlabel, tvalue, tnote, ttone) in zip(cols, tiles):
+            col.markdown(
+                c.tile(tlabel, tvalue, note=tnote, tone=ttone),
+                unsafe_allow_html=True,
+            )
+
+    def _render_latency_section(self, mode: str) -> None:
         lat = self.store.recent_latencies()
 
-        # --- Detection Latency ----------------------------------------- #
+        # --- Detection / Diagnosis Latency ----------------------------- #
         det_points = lat["detection"]
         diag_points = lat["diagnosis"]
         det_current = self._current(det_points)
         det_avg = self._average(det_points)
         det_peak = self._peak(det_points)
         diag_current = self._current(diag_points)
-
-        self._render_latency_panel(
-            "detection_latency",
-            "Detection Latency",
-            "sensor generation → anomaly detection",
-            det_points,
-            color="#39b6e8",
-            y_title="detection latency (ms)",
-            tiles=[
-                ("Current", _fmt_ms(det_current), "latest detection", "info"),
-                ("Average", _fmt_ms(det_avg), "rolling mean", "info"),
-                ("Peak", _fmt_ms(det_peak), "window maximum", "stop"),
-            ],
-        )
-
-        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
-
-        # --- Diagnosis Latency ----------------------------------------- #
         diag_avg = self._average(diag_points)
         diag_peak = self._peak(diag_points)
 
-        self._render_latency_panel(
-            "diagnosis_latency",
-            "Diagnosis Latency",
-            "diagnosis request → diagnosis completion",
-            diag_points,
-            color="#8b7cf6",
-            y_title="diagnosis latency (ms)",
-            tiles=[
-                ("Current", _fmt_ms(diag_current), "latest result", "info"),
-                ("Average", _fmt_ms(diag_avg), "rolling mean", "info"),
-                ("Peak", _fmt_ms(diag_peak), "window maximum", "stop"),
-            ],
-        )
+        if mode == "overlay":
+            with c.panel(
+                "Detection & Diagnosis Latency",
+                "sensor generation → anomaly detection · diagnosis request → completion",
+                key="ov_lat_det_diag",
+            ):
+                st.plotly_chart(
+                    dual_latency_figure(
+                        _latency_df(det_points),
+                        _latency_df(diag_points),
+                        y_title="latency (ms)",
+                        x_range=_x_range(det_points, diag_points),
+                    ),
+                    width="stretch",
+                    config=chart_config("overview_det_diag_latency"),
+                )
+                self._render_tile_group(
+                    "Detection",
+                    EDGE_CPU_COLOR,
+                    [
+                        ("Current", _fmt_ms(det_current), "latest detection", "info"),
+                        ("Average", _fmt_ms(det_avg), "rolling mean", "info"),
+                        ("Peak", _fmt_ms(det_peak), "window maximum", "stop"),
+                    ],
+                )
+                self._render_tile_group(
+                    "Diagnosis",
+                    CLOUD_CPU_COLOR,
+                    [
+                        ("Current", _fmt_ms(diag_current), "latest result", "info"),
+                        ("Average", _fmt_ms(diag_avg), "rolling mean", "info"),
+                        ("Peak", _fmt_ms(diag_peak), "window maximum", "stop"),
+                    ],
+                )
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                row = st.columns([5, 1])
+                row[0].caption(
+                    "Rolling stream · detection and diagnosis on shared axes"
+                )
+                if row[1].button(
+                    "Expand", key="btn_expand_det_diag_latency", width="stretch"
+                ):
+                    st.session_state["ov_modal"] = "det_diag_latency"
+        else:
+            self._render_latency_panel(
+                "detection_latency",
+                "Detection Latency",
+                "sensor generation → anomaly detection",
+                det_points,
+                color="#39b6e8",
+                y_title="detection latency (ms)",
+                tiles=[
+                    ("Current", _fmt_ms(det_current), "latest detection", "info"),
+                    ("Average", _fmt_ms(det_avg), "rolling mean", "info"),
+                    ("Peak", _fmt_ms(det_peak), "window maximum", "stop"),
+                ],
+            )
 
-        st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
+
+            self._render_latency_panel(
+                "diagnosis_latency",
+                "Diagnosis Latency",
+                "diagnosis request → diagnosis completion",
+                diag_points,
+                color="#8b7cf6",
+                y_title="diagnosis latency (ms)",
+                tiles=[
+                    ("Current", _fmt_ms(diag_current), "latest result", "info"),
+                    ("Average", _fmt_ms(diag_avg), "rolling mean", "info"),
+                    ("Peak", _fmt_ms(diag_peak), "window maximum", "stop"),
+                ],
+            )
+
+            st.markdown("<div style='height:0.75rem'></div>", unsafe_allow_html=True)
 
         # --- End-to-End Latency ---------------------------------------- #
         e2e_points = lat["e2e"]
@@ -482,6 +593,7 @@ class OverviewView:
 
     def _render_resource_section(
         self,
+        mode: str,
         title: str,
         meta: str,
         y_title: str,
@@ -506,6 +618,45 @@ class OverviewView:
         cloud_avg = self._average(cloud_points, key="value")
         cloud_peak = self._peak(cloud_points, key="value")
 
+        edge_tiles = [
+            ("Current", fmt(edge_current / unit_scale) if edge_current is not None else "—", "latest sample", "info"),
+            ("Average", fmt(edge_avg / unit_scale) if edge_avg is not None else "—", "rolling mean", "info"),
+            ("Peak", fmt(edge_peak / unit_scale) if edge_peak is not None else "—", "window maximum", "stop"),
+        ]
+        cloud_tiles = [
+            ("Current", fmt(cloud_current / unit_scale) if cloud_current is not None else "—", "latest sample", "info"),
+            ("Average", fmt(cloud_avg / unit_scale) if cloud_avg is not None else "—", "rolling mean", "info"),
+            ("Peak", fmt(cloud_peak / unit_scale) if cloud_peak is not None else "—", "window maximum", "stop"),
+        ]
+
+        if mode == "overlay":
+            slug = f"{slugify(title)}_usage"
+            with c.panel(title, meta, key=f"ov_{slug}"):
+                st.plotly_chart(
+                    dual_resource_figure(
+                        edge_df,
+                        cloud_df,
+                        y_title=y_title,
+                        name_edge="Edge Detection",
+                        color_edge=color_edge,
+                        name_cloud="Cloud Diagnosis",
+                        color_cloud=color_cloud,
+                        x_range=x_range,
+                    ),
+                    width="stretch",
+                    config=chart_config(f"overview_{slug}"),
+                )
+                self._render_tile_group("Edge Detection", color_edge, edge_tiles)
+                self._render_tile_group("Cloud Diagnosis", color_cloud, cloud_tiles)
+                st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
+                row = st.columns([5, 1])
+                row[0].caption(
+                    "Overlaid container metrics · shared time window"
+                )
+                if row[1].button("Expand", key=f"btn_expand_{slug}", width="stretch"):
+                    st.session_state["ov_modal"] = slug
+            return
+
         with c.panel(title, meta, key=f"ov_{slugify(title)}"):
             col_edge, col_cloud = st.columns(2)
             self._render_resource_column(
@@ -516,11 +667,7 @@ class OverviewView:
                 y_title,
                 color_edge,
                 x_range,
-                [
-                    ("Current", fmt(edge_current / unit_scale) if edge_current is not None else "—", "latest sample", "info"),
-                    ("Average", fmt(edge_avg / unit_scale) if edge_avg is not None else "—", "rolling mean", "info"),
-                    ("Peak", fmt(edge_peak / unit_scale) if edge_peak is not None else "—", "window maximum", "stop"),
-                ],
+                edge_tiles,
             )
             self._render_resource_column(
                 col_cloud,
@@ -530,11 +677,7 @@ class OverviewView:
                 y_title,
                 color_cloud,
                 x_range,
-                [
-                    ("Current", fmt(cloud_current / unit_scale) if cloud_current is not None else "—", "latest sample", "info"),
-                    ("Average", fmt(cloud_avg / unit_scale) if cloud_avg is not None else "—", "rolling mean", "info"),
-                    ("Peak", fmt(cloud_peak / unit_scale) if cloud_peak is not None else "—", "window maximum", "stop"),
-                ],
+                cloud_tiles,
             )
 
     def _render_resource_column(
@@ -686,6 +829,12 @@ class OverviewView:
         runtime = self.store.runtime_series()
 
         builders = {
+            "det_diag_latency": lambda: dual_latency_figure(
+                _latency_df(lat["detection"]),
+                _latency_df(lat["diagnosis"]),
+                y_title="latency (ms)",
+                x_range=_x_range(lat["detection"], lat["diagnosis"]),
+            ),
             "detection_latency": lambda: latency_figure(
                 _latency_df(lat["detection"]),
                 color="#39b6e8",
@@ -700,6 +849,26 @@ class OverviewView:
                 _latency_df(lat["e2e"]),
                 color="#2ec27e",
                 y_title="latency (ms)",
+            ),
+            "cpu_usage": lambda: dual_resource_figure(
+                _series_df(runtime["edge"]["cpu"]),
+                _series_df(runtime["cloud"]["cpu"]),
+                y_title="CPU usage (%)",
+                name_edge="Edge Detection",
+                color_edge=EDGE_CPU_COLOR,
+                name_cloud="Cloud Diagnosis",
+                color_cloud=CLOUD_CPU_COLOR,
+                x_range=_x_range(runtime["edge"]["cpu"], runtime["cloud"]["cpu"]),
+            ),
+            "memory_usage": lambda: dual_resource_figure(
+                _series_df(runtime["edge"]["memory"], scale=_MB),
+                _series_df(runtime["cloud"]["memory"], scale=_MB),
+                y_title="memory usage (MB)",
+                name_edge="Edge Detection",
+                color_edge=EDGE_MEM_COLOR,
+                name_cloud="Cloud Diagnosis",
+                color_cloud=CLOUD_MEM_COLOR,
+                x_range=_x_range(runtime["edge"]["memory"], runtime["cloud"]["memory"]),
             ),
             "cpu_usage_edge": lambda: resource_figure(
                 _series_df(runtime["edge"]["cpu"]),
@@ -732,9 +901,12 @@ class OverviewView:
         }
 
         titles = {
+            "det_diag_latency": "Detection & Diagnosis Latency",
             "detection_latency": "Detection Latency",
             "diagnosis_latency": "Diagnosis Latency",
             "e2e_latency": "End-to-End Latency",
+            "cpu_usage": "CPU Usage",
+            "memory_usage": "Memory Usage",
             "cpu_usage_edge": "Edge Detection CPU Usage",
             "cpu_usage_cloud": "Cloud Diagnosis CPU Usage",
             "memory_usage_edge": "Edge Detection Memory Usage",
@@ -760,11 +932,21 @@ class OverviewView:
 
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
-        self._render_latency_section()
+        mode = st.segmented_control(
+            "Graph layout",
+            options=["Separate", "Overlay"],
+            default="Separate",
+            key="ov_graph_mode",
+        )
+
+        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+        self._render_latency_section(mode)
 
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
         self._render_resource_section(
+            mode,
             title="CPU Usage",
             meta="edge detection · cloud diagnosis",
             y_title="CPU usage (%)",
@@ -778,6 +960,7 @@ class OverviewView:
         st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
 
         self._render_resource_section(
+            mode,
             title="Memory Usage",
             meta="edge detection · cloud diagnosis",
             y_title="memory usage (MB)",
