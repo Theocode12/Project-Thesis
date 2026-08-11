@@ -477,7 +477,6 @@ class OverviewView:
                 ("Current", _fmt_ms(e2e_current), "latest diagnosis", "info"),
                 ("Average", _fmt_ms(e2e_avg), "rolling mean", "info"),
                 ("Peak", _fmt_ms(e2e_peak), "window maximum", "stop"),
-                ("CPU usage", _fmt_pct(edge_cpu), "edge detection", "accent"),
             ],
         )
 
