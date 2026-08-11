@@ -767,6 +767,41 @@ html, body, [data-testid="stAppViewContainer"],
     background: rgba(255, 176, 32, 0.2);
 }}
 
+/* ---------- overview graph layout: segmented control ---------- */
+
+.st-key-ov_graph_mode [data-testid="stButtonGroup"] button {{
+    background: var(--edge-panel-alt);
+    border-color: var(--edge-border-strong);
+    color: var(--edge-text);
+    font-family: var(--edge-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.2;
+    height: 2.3rem;
+    min-height: 2.3rem;
+    transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}}
+
+.st-key-ov_graph_mode [data-testid="stButtonGroup"] button:hover,
+.st-key-ov_graph_mode [data-testid="stButtonGroup"] button:focus-visible {{
+    border-color: var(--edge-accent);
+    color: var(--edge-accent);
+}}
+
+.st-key-ov_graph_mode button[kind="segmented_controlActive"],
+.st-key-ov_graph_mode button[data-selected] {{
+    background: rgba(255, 176, 32, 0.12);
+    border-color: var(--edge-accent);
+    color: var(--edge-accent);
+}}
+
+.st-key-ov_graph_mode button[kind="segmented_controlActive"]:hover,
+.st-key-ov_graph_mode button[data-selected]:hover {{
+    background: rgba(255, 176, 32, 0.2);
+}}
+
 [data-baseweb="select"] > div {{
     background: var(--edge-panel-alt) !important;
     border-color: var(--edge-border-strong) !important;

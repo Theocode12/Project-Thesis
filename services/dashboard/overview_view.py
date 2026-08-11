@@ -491,7 +491,7 @@ class OverviewView:
         diag_avg = self._average(diag_points)
         diag_peak = self._peak(diag_points)
 
-        if mode == "overlay":
+        if mode == "Overlay":
             with c.panel(
                 "Detection & Diagnosis Latency",
                 "sensor generation → anomaly detection · diagnosis request → completion",
@@ -629,7 +629,7 @@ class OverviewView:
             ("Peak", fmt(cloud_peak / unit_scale) if cloud_peak is not None else "—", "window maximum", "stop"),
         ]
 
-        if mode == "overlay":
+        if mode == "Overlay":
             slug = f"{slugify(title)}_usage"
             with c.panel(title, meta, key=f"ov_{slug}"):
                 st.plotly_chart(
