@@ -431,7 +431,6 @@ class OverviewView:
                 ("Current", _fmt_ms(det_current), "latest detection", "info"),
                 ("Average", _fmt_ms(det_avg), "rolling mean", "info"),
                 ("Peak", _fmt_ms(det_peak), "window maximum", "stop"),
-                ("Diagnosis latency", _fmt_ms(diag_current), "current", "accent"),
             ],
         )
 
