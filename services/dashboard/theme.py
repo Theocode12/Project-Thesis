@@ -790,18 +790,18 @@ html, body, [data-testid="stAppViewContainer"],
     color: var(--edge-accent);
 }}
 
+.st-key-ov_graph_mode button[data-selected]:not([data-disabled]),
 .st-key-ov_graph_mode button[kind="iconActive"],
-.st-key-ov_graph_mode button[kind="segmented_controlActive"],
-.st-key-ov_graph_mode button[data-selected] {{
-    background: rgba(255, 176, 32, 0.12);
-    border-color: var(--edge-accent);
-    color: var(--edge-accent);
+.st-key-ov_graph_mode button[kind="segmented_controlActive"] {{
+    background: rgba(255, 176, 32, 0.12) !important;
+    border-color: var(--edge-accent) !important;
+    color: var(--edge-accent) !important;
 }}
 
+.st-key-ov_graph_mode button[data-selected]:hover:not([data-disabled]),
 .st-key-ov_graph_mode button[kind="iconActive"]:hover,
-.st-key-ov_graph_mode button[kind="segmented_controlActive"]:hover,
-.st-key-ov_graph_mode button[data-selected]:hover {{
-    background: rgba(255, 176, 32, 0.2);
+.st-key-ov_graph_mode button[kind="segmented_controlActive"]:hover {{
+    background: rgba(255, 176, 32, 0.2) !important;
 }}
 
 [data-baseweb="select"] > div {{
