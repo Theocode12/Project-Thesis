@@ -1,4 +1,6 @@
-torch>=2.0.0
+# The VPS runs inference on CPU; avoid pulling the much larger CUDA/Triton wheel.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1+cpu
 pandas>=1.5.0
 numpy>=1.23.0
 joblib>=1.2.0
