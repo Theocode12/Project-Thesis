@@ -4,7 +4,11 @@ import pytest
 
 from detection_store import DetectionStore
 from diagnosis_store import DiagnosisStore
-from overview_store import OverviewStore, MAX_LATENCY_POINTS
+from overview_store import (
+    LATENCY_RETENTION_SECONDS,
+    OverviewStore,
+    MAX_LATENCY_POINTS,
+)
 
 
 def iso(epoch: float) -> str:
@@ -165,6 +169,19 @@ class TestDetectionLatency:
 
         points = store.recent_latencies()["detection"]
         assert len(points) == MAX_LATENCY_POINTS
+
+    def test_latency_retention_is_time_based(self, monkeypatch):
+        now = 10_000.0
+        store = OverviewStore()
+        history = [
+            {"t": now - LATENCY_RETENTION_SECONDS - 1.0, "ms": 1.0},
+            {"t": now - 1.0, "ms": 2.0},
+        ]
+        monkeypatch.setattr("overview_store.time.time", lambda: now)
+
+        store._trim_latency(history)
+
+        assert history == [{"t": now - 1.0, "ms": 2.0}]
 
 
 class TestDiagnosisAndE2ELatency:

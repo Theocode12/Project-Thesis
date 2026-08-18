@@ -37,7 +37,7 @@ _MB = 1024.0 * 1024.0
 
 # Recent window (seconds) shown by the detection/diagnosis latency overlay so a
 # stale stream can no longer stretch the shared time axis.
-LATENCY_OVERLAY_WINDOW = 600.0
+LATENCY_OVERLAY_WINDOW = 1200.0
 
 
 # --------------------------------------------------------------------------- #
@@ -202,10 +202,11 @@ def latency_figure(
     df: pd.DataFrame,
     color: str = LATENCY_COLOR,
     y_title: str = "latency (ms)",
+    x_range=None,
 ) -> go.Figure:
     fig = go.Figure()
     _latency_trace(fig, df, "latency", color)
-    return configure_layout(fig, y_title=y_title)
+    return configure_layout(fig, y_title=y_title, x_range=x_range)
 
 
 def dual_latency_figure(
@@ -515,7 +516,12 @@ class OverviewView:
         with c.panel(title, meta, key=f"ov_lat_{slug}"):
             df = _latency_df(points)
             st.plotly_chart(
-                latency_figure(df, color=color, y_title=y_title),
+                latency_figure(
+                    df,
+                    color=color,
+                    y_title=y_title,
+                    x_range=_recent_window(points),
+                ),
                 width="stretch",
                 config=chart_config(f"overview_{slug}"),
             )
@@ -913,16 +919,19 @@ class OverviewView:
                 _latency_df(lat["detection"]),
                 color="#39b6e8",
                 y_title="detection latency (ms)",
+                x_range=_recent_window(lat["detection"]),
             ),
             "diagnosis_latency": lambda: latency_figure(
                 _latency_df(lat["diagnosis"]),
                 color="#8b7cf6",
                 y_title="diagnosis latency (ms)",
+                x_range=_recent_window(lat["diagnosis"]),
             ),
             "e2e_latency": lambda: latency_figure(
                 _latency_df(lat["e2e"]),
                 color="#2ec27e",
                 y_title="latency (ms)",
+                x_range=_recent_window(lat["e2e"]),
             ),
             "cpu_usage": lambda: dual_resource_figure(
                 _series_df(runtime["edge"]["cpu"]),

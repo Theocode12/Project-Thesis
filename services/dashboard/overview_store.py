@@ -25,7 +25,9 @@ from typing import Optional
 
 from mqtt_client import ActionLog
 
-MAX_LATENCY_POINTS = 200
+# Safety cap; normal trimming is time-based below.
+MAX_LATENCY_POINTS = 20_000
+LATENCY_RETENTION_SECONDS = 1200.0
 MAX_PENDING_REQUESTS = 16
 
 RISK_MAP = {
@@ -127,7 +129,7 @@ class OverviewStore:
             if latency_ms < 0:
                 return
             self.detection_latency.append({"t": now, "ms": latency_ms})
-            self._trim(self.detection_latency, MAX_LATENCY_POINTS)
+            self._trim_latency(self.detection_latency)
 
     def handle_decision(self, envelope: dict) -> None:
         payload = envelope.get("payload", {})
@@ -217,13 +219,13 @@ class OverviewStore:
             latency_ms = (result_ts - request_ts) * 1000.0
             if latency_ms >= 0:
                 self.diagnosis_latency.append({"t": now, "ms": latency_ms})
-                self._trim(self.diagnosis_latency, MAX_LATENCY_POINTS)
+                self._trim_latency(self.diagnosis_latency)
 
             if sensor_ts is not None:
                 e2e_ms = (result_ts - sensor_ts) * 1000.0
                 if e2e_ms >= 0:
                     self.e2e_latency.append({"t": now, "ms": e2e_ms})
-                    self._trim(self.e2e_latency, MAX_LATENCY_POINTS)
+                    self._trim_latency(self.e2e_latency)
 
             diagnosis = payload.get("diagnosis") or "unknown"
             self.action_log.log(
@@ -362,6 +364,17 @@ class OverviewStore:
     def _trim(history: list, max_len: int) -> None:
         if len(history) > max_len:
             del history[: len(history) - max_len]
+
+    @staticmethod
+    def _trim_latency(history: list[dict]) -> None:
+        cutoff = time.time() - LATENCY_RETENTION_SECONDS
+        while history and history[0]["t"] < cutoff:
+            history.pop(0)
+
+        # Keep a safety cap for pathological event rates while retaining the
+        # full time window during normal operation.
+        if len(history) > MAX_LATENCY_POINTS:
+            del history[: len(history) - MAX_LATENCY_POINTS]
 
 
 def _format_duration(seconds: float) -> str:
