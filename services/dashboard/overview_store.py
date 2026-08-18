@@ -27,7 +27,7 @@ from mqtt_client import ActionLog
 
 # Safety cap; normal trimming is time-based below.
 MAX_LATENCY_POINTS = 20_000
-LATENCY_RETENTION_SECONDS = 1200.0
+LATENCY_RETENTION_SECONDS = 900.0
 MAX_PENDING_REQUESTS = 16
 
 RISK_MAP = {

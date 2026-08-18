@@ -37,7 +37,7 @@ _MB = 1024.0 * 1024.0
 
 # Recent window (seconds) shown by the detection/diagnosis latency overlay so a
 # stale stream can no longer stretch the shared time axis.
-LATENCY_OVERLAY_WINDOW = 1200.0
+LATENCY_OVERLAY_WINDOW = 900.0
 
 
 # --------------------------------------------------------------------------- #
