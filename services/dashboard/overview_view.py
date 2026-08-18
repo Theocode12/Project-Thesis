@@ -569,7 +569,7 @@ class OverviewView:
         if mode == "Overlay":
             with c.panel(
                 "Detection & Diagnosis Latency",
-                "sensor generation → anomaly detection · diagnosis request → completion",
+                "sensor generation → anomaly detection · cloud request → result publication",
                 key="ov_lat_det_diag",
             ):
                 st.plotly_chart(
@@ -629,7 +629,7 @@ class OverviewView:
             self._render_latency_panel(
                 "diagnosis_latency",
                 "Diagnosis Latency",
-                "diagnosis request → diagnosis completion",
+                "cloud request start → result publication",
                 diag_points,
                 color="#8b7cf6",
                 y_title="diagnosis latency (ms)",

@@ -19,8 +19,8 @@ def make_sample_envelope(fault=0, run=1):
             },
             "sg_metrics": {
                 "container": {"cpu_percent": 12.5},
-                "processing_time_ms": 0.4,
-                "processed_at": "2026-01-01T00:00:00+00:00",
+                "processing_started_at": 1000.0,
+                "processing_ended_at": 1000.0004,
                 "stream_interval": 0.1,
                 "status_interval": 5.0,
             },
@@ -42,8 +42,8 @@ def make_status_envelope(running=True, fault=0, run=1, position=42):
             },
             "sg_metrics": {
                 "container": {"cpu_percent": 12.5},
-                "processing_time_ms": 0.4,
-                "processed_at": "2026-01-01T00:00:00+00:00",
+                "processing_started_at": 1000.0,
+                "processing_ended_at": 1000.0004,
                 "stream_interval": 0.1,
                 "status_interval": 5.0,
             },

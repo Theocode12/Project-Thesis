@@ -74,6 +74,15 @@ def make_result_envelope(
             "confidence": confidence,
             "sample_count": sample_count,
             "prediction_counts": {4: 6},
+            "meta": {
+                "ed_metrics": {"inference_ended_at": 1000.003},
+                "event_audit": [],
+            },
+            "cl_metrics": {
+                "received_at": 1000.0,
+                "inference_started_at": 1000.001,
+                "inference_ended_at": 1000.004,
+            },
         },
     }
 
@@ -156,6 +165,14 @@ class TestDiagnosisStoreStatus:
 
 
 class TestDiagnosisStoreResult:
+
+    def test_handle_result_preserves_audit_metadata(self):
+        store = DiagnosisStore()
+        store.handle_result(make_result_envelope())
+
+        result = store.latest_diagnosis()
+        assert result["meta"]["ed_metrics"]["inference_ended_at"] == 1000.003
+        assert result["cl_metrics"]["received_at"] == 1000.0
 
     def test_handle_result_stores_latest(self):
         store = DiagnosisStore()

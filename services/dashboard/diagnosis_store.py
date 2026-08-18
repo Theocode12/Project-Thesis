@@ -135,6 +135,8 @@ class DiagnosisStore:
                 "confidence": payload.get("confidence"),
                 "model": payload.get("model"),
                 "sample_count": payload.get("sample_count"),
+                "meta": payload.get("meta") or {},
+                "cl_metrics": payload.get("cl_metrics") or {},
             }
             self.results.append(result)
             if len(self.results) > MAX_RESULTS:

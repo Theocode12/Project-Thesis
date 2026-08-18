@@ -55,6 +55,8 @@ class DecisionEngine:
                 ratio=0.0,
                 batch=[],
                 sg_metrics={},
+                ed_metrics={},
+                event_audit=[],
                 window_start=window_start,
                 window_end=window_end,
             )
@@ -62,6 +64,8 @@ class DecisionEngine:
         batch = []
         rates = []
         sg_metrics = {}
+        ed_metrics = {}
+        event_audit = []
 
         for event in events:
             sample = event.get("sample")
@@ -70,6 +74,17 @@ class DecisionEngine:
             event_sg = event.get("sg_metrics") or {}
             if event_sg:
                 sg_metrics = event_sg
+            event_ed = event.get("ed_metrics") or {}
+            if event_ed:
+                ed_metrics = event_ed
+            event_audit.append({
+                "edge_published_at": event.get("edge_published_at"),
+                "orchestrator_received_at": event.get(
+                    "orchestrator_received_at"
+                ),
+                "sg_metrics": event_sg,
+                "ed_metrics": event_ed,
+            })
             interval = event_sg.get("stream_interval")
             if interval:
                 rates.append(1.0 / float(interval))
@@ -104,6 +119,8 @@ class DecisionEngine:
             ratio=ratio,
             batch=batch,
             sg_metrics=sg_metrics,
+            ed_metrics=ed_metrics,
+            event_audit=event_audit,
             window_start=window_start,
             window_end=window_end,
         )
@@ -118,6 +135,8 @@ class DecisionEngine:
         ratio: float,
         batch: list[dict],
         sg_metrics: dict,
+        ed_metrics: dict,
+        event_audit: list[dict],
         window_start: float,
         window_end: float,
     ) -> dict:
@@ -140,5 +159,7 @@ class DecisionEngine:
             "batch": batch,
             "batch_size": len(batch),
             "sg_metrics": sg_metrics,
+            "ed_metrics": ed_metrics,
+            "event_audit": event_audit,
             "reported": False,
         }

@@ -45,24 +45,7 @@ class TestServiceMetricsKey:
 
 class TestServiceMetricsProcessing:
 
-    def test_end_processing_returns_none_when_not_started(self):
-        metrics = ServiceMetrics(
-            "sensor-generator",
-            collector=make_mock_collector(),
-        )
-        assert metrics.end_processing() is None
-
-    def test_end_processing_returns_milliseconds(self):
-        metrics = ServiceMetrics(
-            "sensor-generator",
-            collector=make_mock_collector(),
-        )
-        metrics.start_processing()
-        result = metrics.end_processing()
-        assert result is not None
-        assert result >= 0
-
-    def test_snapshot_includes_processing_time(self):
+    def test_snapshot_includes_processing_timestamps(self):
         metrics = ServiceMetrics(
             "sensor-generator",
             collector=make_mock_collector(),
@@ -71,40 +54,89 @@ class TestServiceMetricsProcessing:
 
         snapshot = metrics.snapshot()
 
-        assert snapshot["processing_time_ms"] is not None
-        assert "processed_at" in snapshot
+        assert snapshot["processing_started_at"] is not None
+        assert snapshot["processing_ended_at"] is not None
+        assert (
+            snapshot["processing_ended_at"]
+            >= snapshot["processing_started_at"]
+        )
+        assert "processing_time_ms" not in snapshot
+        assert "processed_at" not in snapshot
         assert snapshot["container"] == {"cpu_percent": 10.0}
+
+    def test_mark_records_named_timestamp(self):
+        metrics = ServiceMetrics(
+            "sensor-generator",
+            collector=make_mock_collector(),
+        )
+        metrics.start_processing()
+
+        value = metrics.mark("inference_started_at")
+
+        snapshot = metrics.snapshot()
+        assert snapshot["inference_started_at"] == value
+        assert snapshot["inference_started_at"] is not None
+
+    def test_mark_returns_timestamp_value(self):
+        metrics = ServiceMetrics(
+            "sensor-generator",
+            collector=make_mock_collector(),
+        )
+        metrics.start_processing()
+
+        started = metrics.mark("inference_started_at")
+        ended = metrics.mark("inference_ended_at")
+
+        assert ended >= started
 
     def test_received_at_included_when_provided(self):
         metrics = ServiceMetrics(
             "sensor-generator",
             collector=make_mock_collector(),
         )
-        metrics.start_processing(
-            received_at="2026-01-01T00:00:00+00:00"
-        )
+        metrics.start_processing(received_at=1000.0)
 
         snapshot = metrics.snapshot()
 
-        assert (
-            snapshot["received_at"]
-            == "2026-01-01T00:00:00+00:00"
-        )
+        assert snapshot["received_at"] == 1000.0
 
     def test_received_at_cleared_after_snapshot(self):
         metrics = ServiceMetrics(
             "sensor-generator",
             collector=make_mock_collector(),
         )
-        metrics.start_processing(
-            received_at="2026-01-01T00:00:00+00:00"
-        )
+        metrics.start_processing(received_at=1000.0)
         metrics.snapshot()
         metrics.start_processing()
 
         snapshot = metrics.snapshot()
 
         assert "received_at" not in snapshot
+
+    def test_mark_reset_after_snapshot(self):
+        metrics = ServiceMetrics(
+            "sensor-generator",
+            collector=make_mock_collector(),
+        )
+        metrics.start_processing()
+        metrics.mark("inference_started_at")
+        metrics.snapshot()
+
+        metrics.start_processing()
+        snapshot = metrics.snapshot()
+
+        assert "inference_started_at" not in snapshot
+
+    def test_snapshot_without_processing_start_has_no_end_timestamp(self):
+        metrics = ServiceMetrics(
+            "sensor-generator",
+            collector=make_mock_collector(),
+        )
+
+        snapshot = metrics.snapshot()
+
+        assert "processing_started_at" not in snapshot
+        assert "processing_ended_at" not in snapshot
 
     def test_extra_metrics_merged(self):
         metrics = ServiceMetrics(

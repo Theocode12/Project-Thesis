@@ -168,7 +168,7 @@ class DiagnosisService:
     def submit(self, payload: dict) -> str:
         batch_id = self._extract_batch_id(payload)
         self._queue.put(
-            (batch_id, payload, time.perf_counter())
+            (batch_id, payload, time.time())
         )
         log.info(
             "Enqueued diagnosis job | batch_id=%s",
@@ -198,31 +198,15 @@ class DiagnosisService:
         batch = payload.get("batch") or []
         meta = payload.get("meta") or {}
 
-        self.metrics.start_processing()
-
-        queue_wait_ms = None
-        if submitted_at is not None:
-            queue_wait_ms = round(
-                (time.perf_counter() - submitted_at) * 1000.0,
-                3,
-            )
+        self.metrics.start_processing(received_at=submitted_at)
 
         queue_depth = self._queue.qsize()
 
-        inference_ms = None
-        inference_per_classification_ms = None
+        inference_started_at = self.metrics.mark(
+            "inference_started_at"
+        )
         try:
-            inference_started = time.perf_counter()
             prediction = self.classifier.predict(batch)
-            inference_ms = round(
-                (time.perf_counter() - inference_started) * 1000.0,
-                3,
-            )
-            if inference_ms is not None and batch:
-                inference_per_classification_ms = round(
-                    inference_ms / len(batch),
-                    6,
-                )
         except Exception:
             log.exception(
                 "Classification failed | batch_id=%s",
@@ -240,15 +224,14 @@ class DiagnosisService:
                 "accuracy": None,
                 "error": "classification_failed",
             }
+        finally:
+            inference_ended_at = self.metrics.mark(
+                "inference_ended_at"
+            )
 
         extra = {
             "batch_id": batch_id,
             "batch_size": len(batch),
-            "inference_ms": inference_ms,
-            "inference_per_classification_ms": (
-                inference_per_classification_ms
-            ),
-            "queue_wait_ms": queue_wait_ms,
             "queue_depth": queue_depth,
             "model": prediction.get("model"),
             "classes_available": self._classes_available(),
@@ -263,7 +246,8 @@ class DiagnosisService:
 
         self._record_batch(
             len(batch),
-            inference_per_classification_ms,
+            inference_started_at,
+            inference_ended_at,
         )
         self._last_prediction = {
             "fault_number": prediction.get("fault_number"),
@@ -365,9 +349,13 @@ class DiagnosisService:
     def _record_batch(
         self,
         batch_size: int,
-        processing_time_ms,
+        started_at: float,
+        ended_at: float,
     ) -> None:
         now = time.time()
+        processing_time_ms = (ended_at - started_at) * 1000.0
+        if batch_size:
+            processing_time_ms /= batch_size
         with self._lock:
             self.batch_count += 1
             self.classifications_processed += batch_size

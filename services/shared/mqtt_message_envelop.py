@@ -1,5 +1,5 @@
+import time
 from dataclasses import dataclass, asdict
-from datetime import datetime, UTC
 
 
 @dataclass(slots=True)
@@ -7,7 +7,7 @@ class MQTTMessageEnvelope:
 
     source: str
 
-    timestamp: str
+    timestamp: float
 
     payload: dict
 
@@ -20,9 +20,7 @@ class MQTTMessageEnvelope:
 
         return cls(
             source=source,
-            timestamp=datetime.now(
-                UTC
-            ).isoformat(),
+            timestamp=time.time(),
             payload=payload
         )
 

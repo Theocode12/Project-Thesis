@@ -25,21 +25,58 @@ def make_anomaly_envelope(sensor_ts: float, completed_ts: float):
     }
 
 
+def make_anomaly_with_inference_timestamp(
+    sensor_ts: float,
+    inference_completed_ts: float,
+    envelope_ts: float,
+):
+    envelope = make_anomaly_envelope(sensor_ts, envelope_ts)
+    envelope["payload"]["ed_metrics"]["inference_ended_at"] = (
+        iso(inference_completed_ts)
+    )
+    return envelope
+
+
+def make_anomaly_with_all_timestamps(
+    sensor_published_ts: float,
+    received_ts: float,
+    inference_completed_ts: float,
+    envelope_ts: float,
+):
+    envelope = make_anomaly_envelope(received_ts, envelope_ts)
+    envelope["payload"]["ed_metrics"].update({
+        "sensor_published_at": iso(sensor_published_ts),
+        "received_at": iso(received_ts),
+        "inference_ended_at": iso(inference_completed_ts),
+    })
+    return envelope
+
+
 def make_decision_envelope(
     decision_ts: float,
     decision: str = "anomaly",
     reported: bool = True,
     batch=None,
+    batch_id: str = "batch_test123456",
+    reporting_started_ts: float | None = None,
 ):
     return {
         "source": "orchestrator",
         "timestamp": iso(decision_ts),
         "payload": {
+            "batch_id": batch_id,
             "decision": decision,
             "reported": reported,
             "anomaly_ratio": 0.7,
             "anomaly_count": 70,
             "window_seconds": 10.0,
+            "or_metrics": {
+                "reporting_started_at": iso(
+                    reporting_started_ts
+                    if reporting_started_ts is not None
+                    else decision_ts
+                )
+            },
             "batch": batch if batch is not None else [
                 {"xmeas_1": 1.5, "xmv_1": 2.5},
                 {"xmeas_1": 1.6, "xmv_1": 2.6},
@@ -48,16 +85,22 @@ def make_decision_envelope(
     }
 
 
-def make_result_envelope(result_ts: float, diagnosis: str = "fault_4"):
+def make_result_envelope(
+    result_ts: float,
+    diagnosis: str = "fault_4",
+    batch_id: str = "batch_test123456",
+    meta=None,
+):
     return {
         "source": "classifier",
         "timestamp": iso(result_ts),
         "payload": {
-            "batch_id": "batch_test123456",
+            "batch_id": batch_id,
             "diagnosis": diagnosis,
             "fault_number": 4,
             "confidence": 0.95,
             "sample_count": 6,
+            "meta": meta or {},
         },
     }
 
@@ -86,6 +129,33 @@ class TestDetectionLatency:
 
         assert store.recent_latencies()["detection"] == []
 
+    def test_uses_inference_completion_timestamp(self):
+        store = OverviewStore()
+        store.handle_anomaly(
+            make_anomaly_with_inference_timestamp(
+                sensor_ts=100.0,
+                inference_completed_ts=100.008,
+                envelope_ts=100.012,
+            )
+        )
+
+        points = store.recent_latencies()["detection"]
+        assert points[0]["ms"] == pytest.approx(8.0)
+
+    def test_detection_latency_uses_sensor_publication_timestamp(self):
+        store = OverviewStore()
+        store.handle_anomaly(
+            make_anomaly_with_all_timestamps(
+                sensor_published_ts=100.0,
+                received_ts=100.005,
+                inference_completed_ts=100.012,
+                envelope_ts=100.013,
+            )
+        )
+
+        points = store.recent_latencies()["detection"]
+        assert points[0]["ms"] == pytest.approx(12.0)
+
     def test_stream_trims_to_cap(self):
         store = OverviewStore()
         for i in range(MAX_LATENCY_POINTS + 20):
@@ -99,14 +169,19 @@ class TestDetectionLatency:
 
 class TestDiagnosisAndE2ELatency:
 
-    def test_latencies_paired_fifo(self):
+    def test_diagnosis_latency_uses_reporting_start(self):
         store = OverviewStore()
         store.handle_anomaly(make_anomaly_envelope(100.0, 100.012))
-        store.handle_decision(make_decision_envelope(decision_ts=200.0))
+        store.handle_decision(
+            make_decision_envelope(
+                decision_ts=200.0,
+                reporting_started_ts=199.900,
+            )
+        )
         store.handle_result(make_result_envelope(result_ts=200.035))
 
         lat = store.recent_latencies()
-        assert lat["diagnosis"][0]["ms"] == pytest.approx(35.0)
+        assert lat["diagnosis"][0]["ms"] == pytest.approx(135.0)
         assert lat["e2e"][0]["ms"] == pytest.approx(100035.0)
 
     def test_result_without_pending_request_ignored(self):
@@ -116,17 +191,55 @@ class TestDiagnosisAndE2ELatency:
         assert store.recent_latencies()["diagnosis"] == []
         assert store.recent_latencies()["e2e"] == []
 
-    def test_multiple_escalations_pair_in_order(self):
+    def test_result_metadata_handles_result_before_decision(self):
         store = OverviewStore()
-        store.handle_anomaly(make_anomaly_envelope(100.0, 100.012))
-        store.handle_decision(make_decision_envelope(decision_ts=200.0))
-        store.handle_decision(make_decision_envelope(decision_ts=210.0))
-        store.handle_result(make_result_envelope(result_ts=200.020))
-        store.handle_result(make_result_envelope(result_ts=210.010))
+        store.handle_result(
+            make_result_envelope(
+                result_ts=200.035,
+                meta={
+                    "orchestrator_timestamps": {
+                        "reporting_started_at": iso(199.900),
+                    },
+                    "event_audit": [{
+                        "ed_metrics": {
+                            "sensor_published_at": iso(100.0),
+                        },
+                    }],
+                },
+            )
+        )
 
         lat = store.recent_latencies()
-        assert lat["diagnosis"][0]["ms"] == pytest.approx(20.0)
-        assert lat["diagnosis"][1]["ms"] == pytest.approx(10.0)
+        assert lat["diagnosis"][0]["ms"] == pytest.approx(135.0)
+        assert lat["e2e"][0]["ms"] == pytest.approx(100035.0)
+
+    def test_multiple_escalations_correlate_by_batch_id(self):
+        store = OverviewStore()
+        store.handle_anomaly(make_anomaly_envelope(100.0, 100.012))
+        store.handle_decision(
+            make_decision_envelope(
+                decision_ts=200.0,
+                batch_id="batch_a",
+                reporting_started_ts=199.900,
+            )
+        )
+        store.handle_decision(
+            make_decision_envelope(
+                decision_ts=210.0,
+                batch_id="batch_b",
+                reporting_started_ts=209.900,
+            )
+        )
+        store.handle_result(
+            make_result_envelope(result_ts=210.010, batch_id="batch_b")
+        )
+        store.handle_result(
+            make_result_envelope(result_ts=200.020, batch_id="batch_a")
+        )
+
+        lat = store.recent_latencies()
+        assert lat["diagnosis"][0]["ms"] == pytest.approx(110.0)
+        assert lat["diagnosis"][1]["ms"] == pytest.approx(120.0)
 
 
 class TestCloudCommunication:

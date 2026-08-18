@@ -31,8 +31,12 @@ def mock_metrics():
     metrics = MagicMock()
     metrics.snapshot.return_value = {
         "container": {"cpu_percent": 20.0},
-        "processing_time_ms": 3.0,
+        "processing_started_at": 1000.0,
+        "processing_ended_at": 1000.003,
+        "inference_started_at": 1000.0,
+        "inference_ended_at": 1000.003,
     }
+    metrics.mark.side_effect = lambda *args, **kwargs: time.time()
     return metrics
 
 
@@ -104,7 +108,7 @@ class TestEdgeDetectorServiceHandleCommand:
     def test_ed_reset_clears_state(self, service, mock_mqtt_service):
         service.samples_processed = 10
         service._sample_times.append(time.time())
-        service._latencies.append((time.time(), 1.5))
+        service._latencies.append((time.time() - 0.002, time.time()))
         service._last_reconstruction_error = 0.9
 
         service.handle_command({"action": "ed_reset"})
@@ -161,7 +165,7 @@ class TestEdgeDetectorServiceHandleSample:
         }
 
         payload = {
-            "timestamp": "2026-01-01T00:00:00+00:00",
+            "timestamp": 1000.0,
             "payload": {
                 "sample": {
                     "faultNumber": 1,
@@ -171,12 +175,21 @@ class TestEdgeDetectorServiceHandleSample:
                 "sg_metrics": {"dummy": True},
             },
         }
-        service.handle_sample(payload)
+        mock_metrics.snapshot.side_effect = (
+            lambda extra=None: {
+                **mock_metrics.snapshot.return_value,
+                **(extra or {}),
+            }
+        )
+        with patch("edge_detector_service.time.time", return_value=2000.0):
+            service.handle_sample(payload)
 
         mock_metrics.start_processing.assert_called_once_with(
-            received_at="2026-01-01T00:00:00+00:00"
+            received_at=2000.0
         )
-        mock_metrics.snapshot.assert_called_once()
+        mock_metrics.snapshot.assert_called_once_with(
+            extra={"sensor_published_at": 1000.0}
+        )
 
         assert mock_mqtt_service.publish.call_count == 1
         call_args = mock_mqtt_service.publish.call_args[0]
@@ -187,7 +200,11 @@ class TestEdgeDetectorServiceHandleSample:
         assert event["payload"]["sg_metrics"] == {"dummy": True}
         assert event["payload"]["ed_metrics"] == {
             "container": {"cpu_percent": 20.0},
-            "processing_time_ms": 3.0,
+            "processing_started_at": 1000.0,
+            "processing_ended_at": 1000.003,
+            "inference_started_at": 1000.0,
+            "inference_ended_at": 1000.003,
+            "sensor_published_at": 1000.0,
         }
 
     def test_does_not_publish_when_no_anomaly(
@@ -252,7 +269,8 @@ class TestEdgeDetectorServiceStatus:
     ):
         service.running = True
         service.samples_processed = 5
-        service._latencies.append((time.time(), 2.0))
+        now = time.time()
+        service._latencies.append((now - 0.002, now))
 
         service.publish_status()
 

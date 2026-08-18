@@ -86,7 +86,13 @@ class OrchestratorService:
         try:
             if not self.evaluation_enabled:
                 return
+            orchestrator_received_at = time.time()
             inner = payload.get("payload") or {}
+            inner = {
+                **inner,
+                "edge_published_at": payload.get("timestamp"),
+                "orchestrator_received_at": orchestrator_received_at,
+            }
             self.decision_engine.add_anomaly(inner)
         except Exception:
             log.exception("Error processing anomaly event")
@@ -118,9 +124,18 @@ class OrchestratorService:
     def _evaluate(self) -> None:
         self.metrics.start_processing()
 
+        decision_started_at = self.metrics.mark(
+            "decision_started_at"
+        )
         decision = self.decision_engine.evaluate()
+        decision_ended_at = self.metrics.mark(
+            "decision_ended_at"
+        )
 
         if decision["decision"] == "anomaly":
+            reporting_started_at = self.metrics.mark(
+                "reporting_started_at"
+            )
             decision["reported"] = self.reporter.report(
                 decision["batch"],
                 meta={
@@ -129,8 +144,16 @@ class OrchestratorService:
                     "window_end": decision["window_end"],
                     "anomaly_ratio": decision["anomaly_ratio"],
                     "sg_metrics": decision["sg_metrics"],
+                    "ed_metrics": decision["ed_metrics"],
+                    "event_audit": decision["event_audit"],
+                    "orchestrator_timestamps": {
+                        "decision_started_at": decision_started_at,
+                        "decision_ended_at": decision_ended_at,
+                        "reporting_started_at": reporting_started_at,
+                    },
                 },
             )
+            self.metrics.mark("reporting_ended_at")
 
         self._publish_decision(decision)
 
@@ -160,6 +183,8 @@ class OrchestratorService:
             "anomaly_ratio": decision["anomaly_ratio"],
             "batch_size": decision["batch_size"],
             "sg_metrics": decision["sg_metrics"],
+            "ed_metrics": decision["ed_metrics"],
+            "event_audit": decision["event_audit"],
             "reported": decision["reported"],
             "or_metrics": self.metrics.snapshot(),
         }

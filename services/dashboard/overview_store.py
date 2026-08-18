@@ -4,7 +4,7 @@ Aggregates cross-service telemetry into the platform-level observability
 metrics consumed by the System Overview home page:
 
 * Detection latency  — sensor generation → anomaly detection completion.
-* Diagnosis latency  — diagnosis request → diagnosis completion.
+* Diagnosis latency  — cloud request start → diagnosis result publication.
 * End-to-end latency — sensor generation → final diagnosis published.
 * Cloud communication — bytes escalated to the cloud diagnosis service.
 * Runtime summary     — diagnosis requests, escalations, queue depth, risk.
@@ -20,7 +20,6 @@ import json
 import os
 import threading
 import time
-from collections import deque
 from datetime import UTC, datetime
 from typing import Optional
 
@@ -98,7 +97,7 @@ class OverviewStore:
         self.bytes_sent_to_cloud: int = 0
 
         self._last_sensor_ts: Optional[float] = None
-        self._pending_requests: deque = deque()
+        self._pending_requests: dict[str, dict] = {}
         self._last_risk: Optional[str] = None
 
     # ------------------------------------------------------------------ #
@@ -108,10 +107,16 @@ class OverviewStore:
     def handle_anomaly(self, envelope: dict) -> None:
         payload = envelope.get("payload", {})
         now = time.time()
-        completed_ts = _parse_ts(envelope.get("timestamp")) or now
-        sensor_ts = _parse_ts((payload.get("ed_metrics") or {}).get(
-            "received_at"
-        ))
+        ed_metrics = payload.get("ed_metrics") or {}
+        completed_ts = (
+            _parse_ts(ed_metrics.get("inference_ended_at"))
+            or _parse_ts(envelope.get("timestamp"))
+            or now
+        )
+        sensor_ts = (
+            _parse_ts(ed_metrics.get("sensor_published_at"))
+            or _parse_ts(ed_metrics.get("received_at"))
+        )
 
         with self._lock:
             self._seen = True
@@ -158,14 +163,23 @@ class OverviewStore:
                 self.escalations += 1
                 self.bytes_sent_to_cloud += _batch_bytes(batch)
 
-                sensor_ts = self._last_sensor_ts
-                if sensor_ts is None:
-                    sensor_ts = _parse_ts(
-                        (payload.get("sg_metrics") or {}).get("received_at")
-                    )
-                self._pending_requests.append((decision_ts, sensor_ts))
+                batch_id = payload.get("batch_id")
+                if not batch_id:
+                    return
+
+                or_metrics = payload.get("or_metrics") or {}
+                request_started_at = (
+                    _parse_ts(or_metrics.get("reporting_started_at"))
+                    or decision_ts
+                )
+                sensor_ts = self._sensor_timestamp_for_batch(payload)
+                self._pending_requests[str(batch_id)] = {
+                    "request_started_at": request_started_at,
+                    "sensor_ts": sensor_ts,
+                }
                 while len(self._pending_requests) > MAX_PENDING_REQUESTS:
-                    self._pending_requests.popleft()
+                    oldest_batch_id = next(iter(self._pending_requests))
+                    del self._pending_requests[oldest_batch_id]
 
                 self.action_log.log(
                     "fault", "Cloud escalation | window sent for diagnosis"
@@ -178,9 +192,27 @@ class OverviewStore:
 
         with self._lock:
             self._seen = True
-            if not self._pending_requests:
+            batch_id = payload.get("batch_id")
+            pending = (
+                self._pending_requests.pop(str(batch_id), None)
+                if batch_id
+                else None
+            )
+            meta = payload.get("meta") or {}
+            orchestrator_timestamps = (
+                meta.get("orchestrator_timestamps") or {}
+            )
+            request_ts = _parse_ts(
+                orchestrator_timestamps.get("reporting_started_at")
+            )
+            sensor_ts = self._sensor_timestamp_for_batch(meta)
+
+            if pending is not None:
+                request_ts = request_ts or pending["request_started_at"]
+                sensor_ts = sensor_ts or pending["sensor_ts"]
+
+            if request_ts is None:
                 return
-            request_ts, sensor_ts = self._pending_requests.popleft()
 
             latency_ms = (result_ts - request_ts) * 1000.0
             if latency_ms >= 0:
@@ -197,6 +229,27 @@ class OverviewStore:
             self.action_log.log(
                 "fault", f"Diagnosis completed | {diagnosis}"
             )
+
+    def _sensor_timestamp_for_batch(self, payload: dict) -> Optional[float]:
+        timestamps = []
+        for event in payload.get("event_audit") or []:
+            ed_metrics = event.get("ed_metrics") or {}
+            timestamp = (
+                _parse_ts(ed_metrics.get("sensor_published_at"))
+                or _parse_ts(ed_metrics.get("received_at"))
+            )
+            if timestamp is not None:
+                timestamps.append(timestamp)
+
+        if timestamps:
+            return min(timestamps)
+
+        if self._last_sensor_ts is not None:
+            return self._last_sensor_ts
+
+        return _parse_ts(
+            (payload.get("sg_metrics") or {}).get("received_at")
+        )
 
     # ------------------------------------------------------------------ #
     # reads

@@ -152,8 +152,6 @@ class DetectionStore:
             avg_ms = status.get("avg_processing_time_ms")
             if avg_ms is not None:
                 self.avg_processing_time_ms = avg_ms
-            elif ed_metrics.get("processing_time_ms") is not None:
-                self.avg_processing_time_ms = ed_metrics["processing_time_ms"]
 
             error = status.get("reconstruction_error")
             if error is not None:

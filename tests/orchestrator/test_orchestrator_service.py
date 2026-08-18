@@ -64,6 +64,8 @@ def make_decision(
         "batch": batch or [{"X": 1.0}],
         "batch_size": 1,
         "sg_metrics": {"stream_interval": 0.1},
+        "ed_metrics": {"inference_ended_at": 1000.003},
+        "event_audit": [],
         "reported": False,
     }
 
@@ -137,9 +139,12 @@ class TestOrchestratorServiceHandleAnomaly:
         inner = {"sample": {"X": 1.0}, "fault": 7}
         service.handle_anomaly({"payload": inner})
 
-        mock_decision_engine.add_anomaly.assert_called_once_with(
-            inner
-        )
+        mock_decision_engine.add_anomaly.assert_called_once()
+        actual = mock_decision_engine.add_anomaly.call_args.args[0]
+        assert actual["sample"] == inner["sample"]
+        assert actual["fault"] == inner["fault"]
+        assert actual["edge_published_at"] is None
+        assert isinstance(actual["orchestrator_received_at"], float)
 
     def test_handle_anomaly_drops_when_disabled(
         self, service, mock_decision_engine
@@ -214,6 +219,9 @@ class TestOrchestratorServiceEvaluate:
         assert envelope["payload"]["batch_size"] == 1
         assert "batch" not in envelope["payload"]
         assert envelope["payload"]["or_metrics"] == {"dummy": True}
+        assert envelope["payload"]["ed_metrics"] == {
+            "inference_ended_at": 1000.003
+        }
 
     def test_reports_batch_when_anomaly(
         self, service, mock_decision_engine, mock_reporter
@@ -231,6 +239,9 @@ class TestOrchestratorServiceEvaluate:
         assert reported_batch == batch
         meta = mock_reporter.report.call_args[1]["meta"]
         assert meta["batch_id"] == "batch_test123456"
+        assert "ed_metrics" in meta
+        assert "event_audit" in meta
+        assert "orchestrator_timestamps" in meta
 
     def test_no_report_when_normal(
         self, service, mock_decision_engine, mock_reporter

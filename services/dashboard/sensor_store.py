@@ -87,17 +87,19 @@ class SensorGeneratorStore:
         if "sg_metrics" not in payload:
             return
 
+        sg_metrics = payload.get("sg_metrics") or {}
         self.metrics = {
-            "sg_metrics": payload.get("sg_metrics"),
+            "sg_metrics": sg_metrics,
             "received_at": now,
         }
-        processing_time = (
-            payload.get("sg_metrics") or {}
-        ).get("processing_time_ms")
-        if processing_time is not None:
+        started = sg_metrics.get("processing_started_at")
+        ended = sg_metrics.get("processing_ended_at")
+        if started is not None and ended is not None:
             self.processing_history.append({
                 "t": now,
-                "processing_time_ms": processing_time,
+                "processing_time_ms": round(
+                    (ended - started) * 1000.0, 3
+                ),
             })
             self._trim_processing_history()
 

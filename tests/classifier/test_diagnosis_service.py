@@ -31,7 +31,15 @@ def mock_mqtt_service():
 def mock_metrics():
     metrics = MagicMock()
     metrics.metrics_key = "cl_metrics"
-    metrics.snapshot.return_value = {"dummy": True}
+    metrics.mark.side_effect = [1000.001, 1000.003]
+    metrics.snapshot.return_value = {
+        "dummy": True,
+        "received_at": 1000.0,
+        "processing_started_at": 1000.001,
+        "inference_started_at": 1000.001,
+        "inference_ended_at": 1000.003,
+        "processing_ended_at": 1000.004,
+    }
     return metrics
 
 
@@ -53,6 +61,12 @@ def sample_payload(batch_id="batch_test123456"):
         "meta": {
             "batch_id": batch_id,
             "window_start": "2026-01-01T00:00:00+00:00",
+            "sg_metrics": {"stream_interval": 0.1},
+            "ed_metrics": {"inference_ended_at": 1000.003},
+            "event_audit": [{
+                "sg_metrics": {"stream_interval": 0.1},
+                "ed_metrics": {"inference_ended_at": 1000.003},
+            }],
         },
     }
 
@@ -112,7 +126,14 @@ class TestDiagnosisServiceProcess:
         assert result["sample_count"] == 4
         assert result["prediction_counts"] == {7: 4}
         assert result["meta"]["batch_id"] == "batch_test123456"
-        assert result["cl_metrics"] == {"dummy": True}
+        assert result["meta"]["ed_metrics"] == {
+            "inference_ended_at": 1000.003
+        }
+        assert len(result["meta"]["event_audit"]) == 1
+        assert result["cl_metrics"]["dummy"] is True
+        assert result["cl_metrics"]["received_at"] == 1000.0
+        assert result["cl_metrics"]["inference_started_at"] == 1000.001
+        assert result["cl_metrics"]["inference_ended_at"] == 1000.003
         assert result["accuracy"] is None
         assert result["correct_count"] is None
         assert result["ground_truth_available"] is None
@@ -120,7 +141,8 @@ class TestDiagnosisServiceProcess:
         extra = mock_metrics.snapshot.call_args.kwargs["extra"]
         assert extra["batch_id"] == "batch_test123456"
         assert extra["batch_size"] == 2
-        assert extra["inference_ms"] is not None
+        assert "inference_ms" not in extra
+        assert "queue_wait_ms" not in extra
         assert extra["accuracy"] is None
 
     def test_publishes_accuracy_from_predictor(

@@ -234,9 +234,9 @@ class DetectionView:
         )
         row2[2].markdown(
             c.tile(
-                "Avg detection latency",
+                "Avg inference time",
                 f"{latency:.1f}<small>ms</small>" if latency is not None else "—",
-                note="sample → anomaly event",
+                note="edge detector processing",
                 tone="info",
                 icon="◷",
             ),

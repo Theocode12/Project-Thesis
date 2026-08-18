@@ -1,5 +1,4 @@
 import time
-from datetime import UTC, datetime
 from typing import Optional
 
 from .container_metrics import (
@@ -30,8 +29,8 @@ class ServiceMetrics:
         self.collector = (
             collector or ContainerMetricsCollector()
         )
-        self._processing_started_at: Optional[float] = None
-        self._received_at: Optional[str] = None
+        self._timestamps: dict[str, float] = {}
+        self._received_at: Optional[float] = None
 
     @property
     def metrics_key(self) -> str:
@@ -46,39 +45,37 @@ class ServiceMetrics:
 
     def start_processing(
         self,
-        received_at: Optional[str] = None,
+        received_at: Optional[float] = None,
     ) -> None:
-        self._processing_started_at = time.perf_counter()
+        self._timestamps = {"processing_started_at": time.time()}
         self._received_at = received_at
 
-    def end_processing(self) -> Optional[float]:
-        if self._processing_started_at is None:
-            return None
-        milliseconds = (
-            time.perf_counter()
-            - self._processing_started_at
-        ) * 1000.0
-        self._processing_started_at = None
-        return round(milliseconds, 3)
+    def mark(self, name: str) -> float:
+        timestamp = time.time()
+        self._timestamps[name] = timestamp
+        return timestamp
 
     def snapshot(
         self,
         extra: Optional[dict] = None,
     ) -> dict:
 
+        timestamps = dict(self._timestamps)
+        if "processing_started_at" in timestamps:
+            timestamps["processing_ended_at"] = time.time()
+
         metrics = {
             "container": (
                 self.collector.snapshot().to_dict()
             ),
-            "processing_time_ms": self.end_processing(),
-            "processed_at": datetime.now(
-                UTC
-            ).isoformat(),
+            **timestamps,
         }
 
         if self._received_at is not None:
             metrics["received_at"] = self._received_at
             self._received_at = None
+
+        self._timestamps = {}
 
         if extra:
             metrics.update(extra)

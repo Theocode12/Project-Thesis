@@ -38,6 +38,7 @@ class EdgeDetectorService:
         self.samples_processed = 0
         self._sample_times: deque = deque()
         self._latencies: deque = deque()
+        self._latency_durations: deque = deque()
         self._last_reconstruction_error = None
         self._last_status_at = 0.0
         self._action_map = {
@@ -92,11 +93,14 @@ class EdgeDetectorService:
         self.samples_processed = 0
         self._sample_times.clear()
         self._latencies.clear()
+        self._latency_durations.clear()
         self._last_reconstruction_error = None
         log.info("Detector state reset")
 
     def handle_sample(self, payload: dict):
         try:
+            received_at = time.time()
+
             if not self.detection_enabled:
                 return
 
@@ -106,14 +110,26 @@ class EdgeDetectorService:
                 return
 
             self.metrics.start_processing(
-                received_at=payload.get("timestamp")
+                received_at=received_at
             )
 
-            started_at = time.perf_counter()
+            inference_started_at = self.metrics.mark(
+                "inference_started_at"
+            )
+            duration_started_at = time.perf_counter()
             result = self.detector.detect(sample)
-            latency_ms = (time.perf_counter() - started_at) * 1000.0
+            duration_ms = (
+                time.perf_counter() - duration_started_at
+            ) * 1000.0
+            inference_ended_at = self.metrics.mark(
+                "inference_ended_at"
+            )
 
-            self._record_sample(latency_ms)
+            self._record_sample(
+                inference_started_at,
+                inference_ended_at,
+                duration_ms,
+            )
             self._last_reconstruction_error = result.get(
                 "reconstruction_error"
             )
@@ -125,7 +141,11 @@ class EdgeDetectorService:
                 result=result,
                 sample=sample,
                 sg_metrics=inner.get("sg_metrics"),
-                ed_metrics=self.metrics.snapshot(),
+                ed_metrics=self.metrics.snapshot(
+                    extra={
+                        "sensor_published_at": payload.get("timestamp")
+                    }
+                ),
             )
             self.mqtt_service.publish(
                 MQTTOPIC.ANOMALY_DETECTED,
@@ -142,17 +162,29 @@ class EdgeDetectorService:
         except Exception:
             log.exception("Error processing sample")
 
-    def _record_sample(self, latency_ms: float) -> None:
+    def _record_sample(
+        self,
+        started_at: float,
+        ended_at: float,
+        duration_ms: float | None = None,
+    ) -> None:
         now = time.time()
         self.samples_processed += 1
         self._sample_times.append(now)
-        self._latencies.append((now, latency_ms))
+        self._latencies.append((started_at, ended_at))
+        if duration_ms is not None:
+            self._latency_durations.append((ended_at, duration_ms))
         rate_cutoff = now - RATE_WINDOW_SECONDS
         while self._sample_times and self._sample_times[0] < rate_cutoff:
             self._sample_times.popleft()
         latency_cutoff = now - LATENCY_WINDOW_SECONDS
-        while self._latencies and self._latencies[0][0] < latency_cutoff:
+        while self._latencies and self._latencies[0][1] < latency_cutoff:
             self._latencies.popleft()
+        while (
+            self._latency_durations
+            and self._latency_durations[0][0] < latency_cutoff
+        ):
+            self._latency_durations.popleft()
 
     def _inference_rate(self) -> float:
         if not self._sample_times:
@@ -163,10 +195,22 @@ class EdgeDetectorService:
         return round(len(self._sample_times) / window, 2)
 
     def _avg_processing_time_ms(self) -> float | None:
-        if not self._latencies:
+        if not self._latencies and not self._latency_durations:
             return None
+        if self._latency_durations:
+            return round(
+                sum(
+                    duration
+                    for _, duration in self._latency_durations
+                )
+                / len(self._latency_durations),
+                3,
+            )
         return round(
-            sum(latency for _, latency in self._latencies)
+            sum(
+                (ended_at - started_at) * 1000.0
+                for started_at, ended_at in self._latencies
+            )
             / len(self._latencies),
             3,
         )

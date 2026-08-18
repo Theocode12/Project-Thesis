@@ -8,7 +8,8 @@ from shared.mqtt_message_envelop import MQTTMessageEnvelope
 def sg_metrics():
     return {
         "container": {"cpu_percent": 5.0},
-        "processing_time_ms": 0.5,
+        "processing_started_at": 1000.0,
+        "processing_ended_at": 1000.0005,
     }
 
 
@@ -16,7 +17,10 @@ def sg_metrics():
 def ed_metrics():
     return {
         "container": {"cpu_percent": 20.0},
-        "processing_time_ms": 3.0,
+        "processing_started_at": 1000.0,
+        "processing_ended_at": 1000.003,
+        "inference_started_at": 1000.0,
+        "inference_ended_at": 1000.003,
     }
 
 
