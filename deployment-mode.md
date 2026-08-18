@@ -439,7 +439,7 @@ CONTROL NODE
 Containers:
 
 ```text id="hgwj0j"
-edge-detector
+detector
 
 edge-storage
 
@@ -455,7 +455,7 @@ Resource limited.
 Containers:
 
 ```text id="rbhjtb"
-cloud-classifier
+classifier
 
 cloud-storage
 ```

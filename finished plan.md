@@ -117,4 +117,4 @@ One thing I would add now, based on how far your implementation has come, is ano
 
 * **Average Diagnosis Processing Time (ms)**
 
-Your classifier service is already publishing this (`avg_processing_time_ms`), and it's a valuable metric because it quantifies the computational cost of the diagnosis stage itself. It complements the overall diagnosis latency and gives you more insight into how efficiently the cloud diagnosis service performs. I would include it alongside the other runtime metrics in your final evaluation.
+Your classifier service is already publishing this (`avg_processing_time_ms`), and it's a valuable metric because it quantifies the computational cost of the diagnosis stage itself. It complements the overall diagnosis latency and gives you more insight into how efficiently the diagnosis service performs. I would include it alongside the other runtime metrics in your final evaluation.

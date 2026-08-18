@@ -10,7 +10,7 @@ class AnomalyEvent:
         result: dict,
         sample: dict,
         sg_metrics: dict = None,
-        ed_metrics: dict = None
+        det_metrics: dict = None
     ) -> MQTTMessageEnvelope:
 
         payload = {
@@ -26,10 +26,10 @@ class AnomalyEvent:
             ),
             "sample": sample,
             "sg_metrics": sg_metrics or {},
-            "ed_metrics": ed_metrics or {},
+            "det_metrics": det_metrics or {},
         }
 
         return MQTTMessageEnvelope.create(
-            source="edge-detector",
+            source="detector",
             payload=payload
         )

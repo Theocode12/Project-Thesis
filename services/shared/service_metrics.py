@@ -7,10 +7,8 @@ from .container_metrics import (
 
 SERVICE_PREFIXES = {
     "sensor-generator": "sg",
-    "edge-detector": "ed",
+    "detector": "det",
     "classifier": "cl",
-    "edge-classifier": "ec",
-    "cloud-classifier": "cc",
     "orchestrator": "or",
     "dashboard": "db",
     "data-management": "dm",

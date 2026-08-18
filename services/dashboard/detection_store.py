@@ -1,10 +1,10 @@
-"""Edge Detection view data store.
+"""Detector view data store.
 
-Holds detector telemetry (topic ``edge/status``), orchestrator risk
+    Holds detector telemetry (topic ``detector/status``), orchestrator risk
 decisions (topic ``orchestrator/decision``) and anomalies (topic
 ``anomaly/detected``), together with the page's own action log. The
-controller translates view actions into MQTT commands (``ed_start`` /
-``ed_stop`` / ``ed_reset``) decoupled from the transport details.
+    controller translates view actions into MQTT commands (``det_start`` /
+    ``det_stop`` / ``det_reset``) decoupled from the transport details.
 """
 
 import threading
@@ -75,7 +75,7 @@ class DetectionStore:
                 "value": payload.get("value"),
                 "fault": payload.get("fault"),
                 "run": payload.get("simulationRun"),
-                "ed_metrics": payload.get("ed_metrics") or {},
+                "det_metrics": payload.get("det_metrics") or {},
                 "t": now,
             }
             self.detections.append(detection)
@@ -95,11 +95,11 @@ class DetectionStore:
                 f"Anomaly detected{detail}",
             )
 
-    def handle_edge_status(self, envelope: dict) -> None:
+    def handle_detector_status(self, envelope: dict) -> None:
         payload = envelope.get("payload", {})
         status = payload.get("status") or {}
-        ed_metrics = payload.get("ed_metrics") or {}
-        container = ed_metrics.get("container") or {}
+        det_metrics = payload.get("det_metrics") or {}
+        container = det_metrics.get("container") or {}
         now = time.time()
 
         with self._lock:
@@ -256,7 +256,7 @@ class DetectionStore:
 
 
 class DetectionController:
-    """Translates Edge Detection UI actions into MQTT commands."""
+    """Translates detector UI actions into MQTT commands."""
 
     def __init__(
         self,
@@ -267,13 +267,13 @@ class DetectionController:
         self.client = client
 
     def send_start(self) -> None:
-        self.client.send_command("ed_start")
+        self.client.send_command("det_start")
         self.store.action_log.log("state", "Detection start sent")
 
     def send_stop(self) -> None:
-        self.client.send_command("ed_stop")
+        self.client.send_command("det_stop")
         self.store.action_log.log("state", "Detection stop sent")
 
     def send_reset(self) -> None:
-        self.client.send_command("ed_reset")
+        self.client.send_command("det_reset")
         self.store.action_log.log("state", "Reset engine state sent")

@@ -18,7 +18,7 @@ def make_anomaly_envelope(
     run=4,
 ):
     return {
-        "source": "edge-detector",
+        "source": "detector",
         "timestamp": "2026-01-01T00:00:00+00:00",
         "payload": {
             "anomaly": True,
@@ -29,7 +29,7 @@ def make_anomaly_envelope(
             "simulationRun": run,
             "sample": {"xmeas_1": 1.5},
             "sg_metrics": {},
-            "ed_metrics": {"container": {"cpu_percent": 5.0}},
+        "det_metrics": {"container": {"cpu_percent": 5.0}},
         },
     }
 
@@ -46,7 +46,7 @@ def make_status_envelope(
     memory_used_bytes=41_000_000,
 ):
     return {
-        "source": "edge-detector",
+        "source": "detector",
         "timestamp": "2026-01-01T00:00:00+00:00",
         "payload": {
             "status": {
@@ -59,7 +59,7 @@ def make_status_envelope(
                 "reconstruction_error": reconstruction_error,
                 "avg_processing_time_ms": avg_processing_time_ms,
             },
-            "ed_metrics": {
+        "det_metrics": {
                 "container": {
                     "cpu_percent": cpu_percent,
                     "memory_used_bytes": memory_used_bytes,
@@ -139,9 +139,9 @@ class TestDetectionStore:
 
 class TestDetectionStoreStatus:
 
-    def test_handle_edge_status_stores_telemetry(self):
+    def test_handle_detector_status_stores_telemetry(self):
         store = DetectionStore()
-        store.handle_edge_status(make_status_envelope())
+        store.handle_detector_status(make_status_envelope())
 
         assert store.detection_enabled is True
         assert store.model_loaded is True
@@ -150,12 +150,12 @@ class TestDetectionStoreStatus:
         assert store.inference_rate == 9.5
         assert store.avg_processing_time_ms == 3.0
 
-    def test_handle_edge_status_records_score_history(self):
+    def test_handle_detector_status_records_score_history(self):
         store = DetectionStore()
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(reconstruction_error=0.02)
         )
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(reconstruction_error=0.09)
         )
 
@@ -165,12 +165,12 @@ class TestDetectionStoreStatus:
         assert scores[0]["anomaly"] is False
         assert scores[1]["anomaly"] is True
 
-    def test_handle_edge_status_records_runtime_series(self):
+    def test_handle_detector_status_records_runtime_series(self):
         store = DetectionStore()
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(cpu_percent=10.0, memory_used_bytes=20_000_000)
         )
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(cpu_percent=15.0, memory_used_bytes=25_000_000)
         )
 
@@ -181,10 +181,10 @@ class TestDetectionStoreStatus:
 
     def test_status_transitions_log_lifecycle_events(self):
         store = DetectionStore()
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(detection_enabled=False)
         )
-        store.handle_edge_status(
+        store.handle_detector_status(
             make_status_envelope(detection_enabled=True)
         )
 
@@ -194,16 +194,16 @@ class TestDetectionStoreStatus:
 
     def test_threshold_change_logs_event(self):
         store = DetectionStore()
-        store.handle_edge_status(make_status_envelope(threshold=0.05))
-        store.handle_edge_status(make_status_envelope(threshold=0.08))
+        store.handle_detector_status(make_status_envelope(threshold=0.05))
+        store.handle_detector_status(make_status_envelope(threshold=0.08))
 
         texts = [e["text"] for e in store.recent_actions()]
         assert any("Threshold updated to 0.08" in t for t in texts)
 
     def test_model_reload_logs_event(self):
         store = DetectionStore()
-        store.handle_edge_status(make_status_envelope(model_loaded=False))
-        store.handle_edge_status(make_status_envelope(model_loaded=True))
+        store.handle_detector_status(make_status_envelope(model_loaded=False))
+        store.handle_detector_status(make_status_envelope(model_loaded=True))
 
         texts = [e["text"] for e in store.recent_actions()]
         assert "Model reloaded" in texts
@@ -213,7 +213,7 @@ class TestDetectionStoreStatus:
         from detection_store import MAX_SCORE_POINTS
 
         for _ in range(MAX_SCORE_POINTS + 10):
-            store.handle_edge_status(make_status_envelope())
+            store.handle_detector_status(make_status_envelope())
 
         assert len(store.recent_scores()) == MAX_SCORE_POINTS
 
@@ -265,7 +265,7 @@ class TestDetectionController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "ed_start"},
+            {"action": "det_start"},
         )
 
     def test_send_stop(self, controller):
@@ -274,7 +274,7 @@ class TestDetectionController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "ed_stop"},
+            {"action": "det_stop"},
         )
 
     def test_send_reset(self, controller):
@@ -283,7 +283,7 @@ class TestDetectionController:
 
         mqtt_service.publish.assert_called_once_with(
             MQTTOPIC.SYSTEM_CONTROL,
-            {"action": "ed_reset"},
+            {"action": "det_reset"},
         )
 
     def test_commands_log_actions(self, controller):

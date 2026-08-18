@@ -3,7 +3,7 @@
 The platform-level observability dashboard for the Edge–Cloud Inference
 Orchestration platform. It aggregates cross-service telemetry into a live
 evaluation view: detection / diagnosis / end-to-end latency, CPU and memory
-usage for the edge detection and cloud diagnosis services, cloud
+    usage for the detector and classifier services, cloud
 communication statistics and a runtime summary.
 
 This page is intentionally read-only — it is an observability and
@@ -718,17 +718,17 @@ class OverviewView:
                         edge_df,
                         cloud_df,
                         y_title=y_title,
-                        name_edge="Edge Detection",
+                        name_edge="Detector",
                         color_edge=color_edge,
-                        name_cloud="Cloud Diagnosis",
+                        name_cloud="Classifier",
                         color_cloud=color_cloud,
                         x_range=x_range,
                     ),
                     width="stretch",
                     config=chart_config(f"overview_{slug}"),
                 )
-                self._render_tile_group("Edge Detection", color_edge, edge_tiles)
-                self._render_tile_group("Cloud Diagnosis", color_cloud, cloud_tiles)
+                self._render_tile_group("Detector", color_edge, edge_tiles)
+                self._render_tile_group("Classifier", color_cloud, cloud_tiles)
                 st.markdown('<div class="edge-divider"></div>', unsafe_allow_html=True)
                 row = st.columns([5, 1])
                 row[0].caption(
@@ -743,7 +743,7 @@ class OverviewView:
             self._render_resource_column(
                 col_edge,
                 f"{slugify(title)}_edge",
-                "Edge Detection",
+                "Detector",
                 edge_df,
                 y_title,
                 color_edge,
@@ -753,7 +753,7 @@ class OverviewView:
             self._render_resource_column(
                 col_cloud,
                 f"{slugify(title)}_cloud",
-                "Cloud Diagnosis",
+                "Classifier",
                 cloud_df,
                 y_title,
                 color_cloud,
@@ -937,9 +937,9 @@ class OverviewView:
                 _series_df(runtime["edge"]["cpu"]),
                 _series_df(runtime["cloud"]["cpu"]),
                 y_title="CPU usage (%)",
-                name_edge="Edge Detection",
+                        name_edge="Detector",
                 color_edge=EDGE_CPU_COLOR,
-                name_cloud="Cloud Diagnosis",
+                        name_cloud="Classifier",
                 color_cloud=CLOUD_CPU_COLOR,
                 x_range=_x_range(runtime["edge"]["cpu"], runtime["cloud"]["cpu"]),
             ),
@@ -947,9 +947,9 @@ class OverviewView:
                 _series_df(runtime["edge"]["memory"], scale=_MB),
                 _series_df(runtime["cloud"]["memory"], scale=_MB),
                 y_title="memory usage (MB)",
-                name_edge="Edge Detection",
+                name_edge="Detector",
                 color_edge=EDGE_MEM_COLOR,
-                name_cloud="Cloud Diagnosis",
+                name_cloud="Classifier",
                 color_cloud=CLOUD_MEM_COLOR,
                 x_range=_x_range(runtime["edge"]["memory"], runtime["cloud"]["memory"]),
             ),
@@ -957,28 +957,28 @@ class OverviewView:
                 _series_df(runtime["edge"]["cpu"]),
                 y_title="CPU usage (%)",
                 color=EDGE_CPU_COLOR,
-                name="Edge Detection",
+                        name="Detector",
                 x_range=_x_range(runtime["edge"]["cpu"], runtime["cloud"]["cpu"]),
             ),
             "cpu_usage_cloud": lambda: resource_figure(
                 _series_df(runtime["cloud"]["cpu"]),
                 y_title="CPU usage (%)",
                 color=CLOUD_CPU_COLOR,
-                name="Cloud Diagnosis",
+                        name="Classifier",
                 x_range=_x_range(runtime["edge"]["cpu"], runtime["cloud"]["cpu"]),
             ),
             "memory_usage_edge": lambda: resource_figure(
                 _series_df(runtime["edge"]["memory"], scale=_MB),
                 y_title="memory usage (MB)",
                 color=EDGE_MEM_COLOR,
-                name="Edge Detection",
+                        name="Detector",
                 x_range=_x_range(runtime["edge"]["memory"], runtime["cloud"]["memory"]),
             ),
             "memory_usage_cloud": lambda: resource_figure(
                 _series_df(runtime["cloud"]["memory"], scale=_MB),
                 y_title="memory usage (MB)",
                 color=CLOUD_MEM_COLOR,
-                name="Cloud Diagnosis",
+                        name="Classifier",
                 x_range=_x_range(runtime["edge"]["memory"], runtime["cloud"]["memory"]),
             ),
         }
@@ -990,10 +990,10 @@ class OverviewView:
             "e2e_latency": "End-to-End Latency",
             "cpu_usage": "CPU Usage",
             "memory_usage": "Memory Usage",
-            "cpu_usage_edge": "Edge Detection CPU Usage",
-            "cpu_usage_cloud": "Cloud Diagnosis CPU Usage",
-            "memory_usage_edge": "Edge Detection Memory Usage",
-            "memory_usage_cloud": "Cloud Diagnosis Memory Usage",
+            "cpu_usage_edge": "Detector CPU Usage",
+            "cpu_usage_cloud": "Classifier CPU Usage",
+            "memory_usage_edge": "Detector Memory Usage",
+            "memory_usage_cloud": "Classifier Memory Usage",
         }
 
         builder = builders.get(slug)
@@ -1031,7 +1031,7 @@ class OverviewView:
         self._render_resource_section(
             mode,
             title="CPU Usage",
-            meta="edge detection · cloud diagnosis",
+            meta="detector · classifier",
             y_title="CPU usage (%)",
             unit_scale=1.0,
             color_edge=EDGE_CPU_COLOR,
@@ -1045,7 +1045,7 @@ class OverviewView:
         self._render_resource_section(
             mode,
             title="Memory Usage",
-            meta="edge detection · cloud diagnosis",
+            meta="detector · classifier",
             y_title="memory usage (MB)",
             unit_scale=_MB,
             color_edge=EDGE_MEM_COLOR,

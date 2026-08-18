@@ -1,0 +1,29 @@
+services:
+  cloud-mqtt:
+    build:
+      context: ../../mqtt
+    container_name: cloud-mqtt
+    ports:
+      - "${CLOUD_MQTT_BIND_ADDRESS:-0.0.0.0}:1883:1883"
+    volumes:
+      - cloud_mqtt_data:/mosquitto/data
+    restart: unless-stopped
+
+  classifier:
+    build:
+      context: ../..
+      dockerfile: services/classifier/Dockerfile
+    container_name: classifier
+    depends_on:
+      - cloud-mqtt
+    cpus: 2.0
+    mem_limit: 4g
+    environment:
+      MQTT_HOST: cloud-mqtt
+      MQTT_PORT: 1883
+    ports:
+      - "${DIAGNOSIS_BIND_ADDRESS:-0.0.0.0}:8000:8000"
+    restart: unless-stopped
+
+volumes:
+  cloud_mqtt_data:

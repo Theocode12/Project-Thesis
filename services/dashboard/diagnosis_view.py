@@ -6,7 +6,7 @@ diagnosis result (centrepiece), compact runtime sparklines, an event
 timeline and machine controls over MQTT (``cl_start`` / ``cl_stop`` /
 ``cl_reset``).
 
-Interaction model mirrors the Edge Detection page: the read-only display
+    Interaction model mirrors the Detection page: the read-only display
 (header, metrics, latest diagnosis, runtime panel, timeline) is wrapped in
 fragments that re-run every 0.5s, and the state-driven Start/Stop buttons
 run inside a 1s fragment so their active styling tracks the live
@@ -218,7 +218,7 @@ class DiagnosisView:
         st.markdown(
             c.page_head(
                 "Diagnosis",
-                "PyTorch Fault Classifier · Cloud Diagnosis Service",
+                "PyTorch Fault Classifier · Diagnosis Service",
                 "DG",
                 hud,
             ),

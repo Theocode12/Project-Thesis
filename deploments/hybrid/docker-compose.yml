@@ -1,0 +1,62 @@
+services:
+  edge-mqtt:
+    build:
+      context: ../../mqtt
+    container_name: edge-mqtt
+    ports:
+      - "${EDGE_MQTT_BIND_ADDRESS:-0.0.0.0}:1883:1883"
+    volumes:
+      - edge_mqtt_data:/mosquitto/data
+    restart: unless-stopped
+
+  sensor-generator:
+    build:
+      context: ../..
+      dockerfile: services/sensor-generator/Dockerfile
+    container_name: sensor-generator
+    depends_on:
+      - edge-mqtt
+    volumes:
+      - ../../datasets:/app/datasets:ro
+    environment:
+      MQTT_HOST: edge-mqtt
+      MQTT_PORT: 1883
+      STREAM_INTERVAL: ${STREAM_INTERVAL:-0.1}
+    restart: unless-stopped
+
+  detector:
+    build:
+      context: ../..
+      dockerfile: services/detector/Dockerfile
+    container_name: detector
+    depends_on:
+      - edge-mqtt
+    cpus: 1.0
+    mem_limit: 512m
+    environment:
+      MQTT_HOST: edge-mqtt
+      MQTT_PORT: 1883
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: orchestrator
+    depends_on:
+      - edge-mqtt
+    cpus: 0.5
+    mem_limit: 256m
+    environment:
+      MQTT_HOST: edge-mqtt
+      MQTT_PORT: 1883
+      EVAL_WINDOW_SECONDS: ${EVAL_WINDOW_SECONDS:-10}
+      ANOMALY_HIGH_RATIO: ${ANOMALY_HIGH_RATIO:-0.5}
+      ANOMALY_LOW_RATIO: ${ANOMALY_LOW_RATIO:-0.1}
+      FALLBACK_STREAM_INTERVAL: ${FALLBACK_STREAM_INTERVAL:-0.1}
+      DIAGNOSIS_ENDPOINT: ${DIAGNOSIS_ENDPOINT:-http://cloud-host:8000/diagnose}
+      DIAGNOSIS_TIMEOUT: ${DIAGNOSIS_TIMEOUT:-5.0}
+    restart: unless-stopped
+
+volumes:
+  edge_mqtt_data:

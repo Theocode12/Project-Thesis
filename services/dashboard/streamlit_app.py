@@ -26,7 +26,7 @@ theme.inject()
 VIEWS = {
     "System Overview": (OverviewView, "overview_store"),
     "Sensor Generator": (SensorGeneratorView, "sensor_store"),
-    "Edge Detection": (DetectionView, "detection_store"),
+    "Detection": (DetectionView, "detection_store"),
     "Diagnosis": (DiagnosisView, "diagnosis_store"),
 }
 
@@ -48,7 +48,7 @@ def _resources() -> dict:
     client.subscribe(MQTTOPIC.SENSOR_RAW, sensor_store.handle_raw)
     client.subscribe(MQTTOPIC.SENSOR_STATUS, sensor_store.handle_status)
     client.subscribe(MQTTOPIC.ANOMALY_DETECTED, detection_store.handle_anomaly)
-    client.subscribe(MQTTOPIC.EDGE_STATUS, detection_store.handle_edge_status)
+    client.subscribe(MQTTOPIC.DETECTOR_STATUS, detection_store.handle_detector_status)
     client.subscribe(
         MQTTOPIC.ORCHESTRATOR_DECISION, detection_store.handle_decision
     )

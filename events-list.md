@@ -116,7 +116,7 @@ sensor-generator
 Subscribed by:
 
 ```text
-edge-detector
+detector
 dashboard
 ```
 
@@ -131,7 +131,7 @@ anomaly/detected
 Published by:
 
 ```text
-edge-detector
+detector
 ```
 
 Subscribed by:
@@ -158,8 +158,7 @@ orchestrator
 Subscribed by:
 
 ```text
-edge-classifier
-cloud-classifier
+classifier
 ```
 
 ---
@@ -173,8 +172,7 @@ classification/result
 Published by:
 
 ```text
-edge-classifier
-cloud-classifier
+classifier
 ```
 
 Subscribed by:
@@ -260,26 +258,26 @@ sensor-generator
 ```
 
 Actions are namespaced per service to avoid cross-triggering on the shared
-topic: `sg_*` for the sensor generator, `ed_*` for the edge detector.
+topic: `sg_*` for the sensor generator, `det_*` for the detector.
 
 Edge detector control messages:
 
 ```json
 {
-  "action": "ed_start"
+  "action": "det_start"
 }
 ```
 
 ```json
 {
-  "action": "ed_stop"
+  "action": "det_stop"
 }
 ```
 
 Subscribed by:
 
 ```text
-edge-detector
+detector
 ```
 
 ---

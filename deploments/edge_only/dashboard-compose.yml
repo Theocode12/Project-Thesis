@@ -1,0 +1,35 @@
+services:
+  dashboard:
+    build:
+      context: ../..
+      dockerfile: services/dashboard/Dockerfile
+    container_name: edge-only-dashboard
+    environment:
+      MQTT_HOST: ${EDGE_MQTT_HOST:-edge-host}
+      MQTT_PORT: ${EDGE_MQTT_PORT:-1883}
+      DEPLOYMENT_MODE: edge
+    expose:
+      - "8501"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    container_name: edge-only-dashboard-proxy
+    depends_on:
+      - dashboard
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../../Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../certs/origin.pem:/etc/caddy/certs/origin.pem:ro
+      - ../../certs/origin.key:/etc/caddy/certs/origin.key:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-thesis.devval.dev}
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

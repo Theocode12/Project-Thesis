@@ -9,7 +9,7 @@ single daemon worker thread. This keeps the HTTP request path fast
 request path.
 
 The service also owns a periodic status heartbeat (mirroring the
-edge-detector) so consumers can observe classifier health, throughput
+    detector) so consumers can observe classifier health, throughput
 and backlog without waiting for a classification to occur. Both the
 per-classification metrics and the heartbeat are published under the
 service's metric key (``cl_metrics``).

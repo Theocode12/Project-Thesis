@@ -215,7 +215,7 @@ Docker container.
 Container:
 
 ```text
-edge-detector
+detector
 ```
 
 Technology:
@@ -602,7 +602,7 @@ stream-generator
 
 mosquitto
 
-edge-detector
+detector
 
 edge-storage
 
@@ -610,7 +610,7 @@ batch-sync
 
 orchestrator
 
-cloud-diagnosis
+classifier
 
 streamlit-ui
 

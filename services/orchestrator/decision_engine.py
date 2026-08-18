@@ -55,7 +55,7 @@ class DecisionEngine:
                 ratio=0.0,
                 batch=[],
                 sg_metrics={},
-                ed_metrics={},
+                det_metrics={},
                 event_audit=[],
                 window_start=window_start,
                 window_end=window_end,
@@ -64,7 +64,7 @@ class DecisionEngine:
         batch = []
         rates = []
         sg_metrics = {}
-        ed_metrics = {}
+        det_metrics = {}
         event_audit = []
 
         for event in events:
@@ -74,16 +74,16 @@ class DecisionEngine:
             event_sg = event.get("sg_metrics") or {}
             if event_sg:
                 sg_metrics = event_sg
-            event_ed = event.get("ed_metrics") or {}
-            if event_ed:
-                ed_metrics = event_ed
+            event_det = event.get("det_metrics") or {}
+            if event_det:
+                det_metrics = event_det
             event_audit.append({
                 "edge_published_at": event.get("edge_published_at"),
                 "orchestrator_received_at": event.get(
                     "orchestrator_received_at"
                 ),
                 "sg_metrics": event_sg,
-                "ed_metrics": event_ed,
+                "det_metrics": event_det,
             })
             interval = event_sg.get("stream_interval")
             if interval:
@@ -119,7 +119,7 @@ class DecisionEngine:
             ratio=ratio,
             batch=batch,
             sg_metrics=sg_metrics,
-            ed_metrics=ed_metrics,
+            det_metrics=det_metrics,
             event_audit=event_audit,
             window_start=window_start,
             window_end=window_end,
@@ -135,7 +135,7 @@ class DecisionEngine:
         ratio: float,
         batch: list[dict],
         sg_metrics: dict,
-        ed_metrics: dict,
+        det_metrics: dict,
         event_audit: list[dict],
         window_start: float,
         window_end: float,
@@ -159,7 +159,7 @@ class DecisionEngine:
             "batch": batch,
             "batch_size": len(batch),
             "sg_metrics": sg_metrics,
-            "ed_metrics": ed_metrics,
+            "det_metrics": det_metrics,
             "event_audit": event_audit,
             "reported": False,
         }

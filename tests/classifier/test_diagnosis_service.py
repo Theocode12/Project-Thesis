@@ -62,10 +62,10 @@ def sample_payload(batch_id="batch_test123456"):
             "batch_id": batch_id,
             "window_start": "2026-01-01T00:00:00+00:00",
             "sg_metrics": {"stream_interval": 0.1},
-            "ed_metrics": {"inference_ended_at": 1000.003},
+            "det_metrics": {"inference_ended_at": 1000.003},
             "event_audit": [{
                 "sg_metrics": {"stream_interval": 0.1},
-                "ed_metrics": {"inference_ended_at": 1000.003},
+                "det_metrics": {"inference_ended_at": 1000.003},
             }],
         },
     }
@@ -126,7 +126,7 @@ class TestDiagnosisServiceProcess:
         assert result["sample_count"] == 4
         assert result["prediction_counts"] == {7: 4}
         assert result["meta"]["batch_id"] == "batch_test123456"
-        assert result["meta"]["ed_metrics"] == {
+        assert result["meta"]["det_metrics"] == {
             "inference_ended_at": 1000.003
         }
         assert len(result["meta"]["event_audit"]) == 1

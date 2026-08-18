@@ -26,7 +26,7 @@ def make_event(
         "sg_metrics": {
             "stream_interval": stream_interval,
         },
-        "ed_metrics": {},
+        "det_metrics": {},
     }
 
 
@@ -137,9 +137,9 @@ class TestDecisionEngineEvaluate:
 
         assert decision["sg_metrics"]["stream_interval"] == 0.1
 
-    def test_ed_metrics_carried_into_decision(self, engine):
+    def test_det_metrics_carried_into_decision(self, engine):
         event = make_event()
-        event["ed_metrics"] = {
+        event["det_metrics"] = {
             "received_at": 1000.0,
             "inference_ended_at": 1000.003,
         }
@@ -147,13 +147,13 @@ class TestDecisionEngineEvaluate:
         engine.add_anomaly(event)
         decision = engine.evaluate()
 
-        assert decision["ed_metrics"]["received_at"] == 1000.0
+        assert decision["det_metrics"]["received_at"] == 1000.0
 
     def test_event_audit_preserves_service_metrics_and_timestamps(self, engine):
         event = make_event()
         event["edge_published_at"] = 1000.0
         event["orchestrator_received_at"] = 1000.001
-        event["ed_metrics"] = {"inference_ended_at": 1000.003}
+        event["det_metrics"] = {"inference_ended_at": 1000.003}
 
         engine.add_anomaly(event)
         decision = engine.evaluate()
@@ -162,7 +162,7 @@ class TestDecisionEngineEvaluate:
             "edge_published_at": 1000.0,
             "orchestrator_received_at": 1000.001,
             "sg_metrics": event["sg_metrics"],
-            "ed_metrics": event["ed_metrics"],
+            "det_metrics": event["det_metrics"],
         }]
 
     def test_sg_metrics_uses_latest_event(self, engine):
@@ -177,7 +177,7 @@ class TestDecisionEngineEvaluate:
         decision = engine.evaluate()
 
         assert decision["sg_metrics"] == {}
-        assert decision["ed_metrics"] == {}
+        assert decision["det_metrics"] == {}
         assert decision["event_audit"] == []
 
     def test_every_decision_has_batch_id(self, engine):

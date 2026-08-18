@@ -14,7 +14,7 @@ def sg_metrics():
 
 
 @pytest.fixture
-def ed_metrics():
+def det_metrics():
     return {
         "container": {"cpu_percent": 20.0},
         "processing_started_at": 1000.0,
@@ -26,7 +26,7 @@ def ed_metrics():
 
 class TestAnomalyEventCreate:
 
-    def test_returns_mqtt_message_envelope(self, sg_metrics, ed_metrics):
+    def test_returns_mqtt_message_envelope(self, sg_metrics, det_metrics):
         result = {
             "anomaly": True,
             "reason": "reconstruction_error",
@@ -43,13 +43,13 @@ class TestAnomalyEventCreate:
             result=result,
             sample=sample,
             sg_metrics=sg_metrics,
-            ed_metrics=ed_metrics,
+            det_metrics=det_metrics,
         )
 
         assert isinstance(event, MQTTMessageEnvelope)
-        assert event.source == "edge-detector"
+        assert event.source == "detector"
 
-    def test_payload_contains_anomaly_info(self, sg_metrics, ed_metrics):
+    def test_payload_contains_anomaly_info(self, sg_metrics, det_metrics):
         result = {
             "anomaly": True,
             "reason": "reconstruction_error",
@@ -66,7 +66,7 @@ class TestAnomalyEventCreate:
             result=result,
             sample=sample,
             sg_metrics=sg_metrics,
-            ed_metrics=ed_metrics,
+            det_metrics=det_metrics,
         )
 
         assert event.payload["anomaly"] is True
@@ -74,7 +74,7 @@ class TestAnomalyEventCreate:
         assert event.payload["metric"] == "reconstruction_error"
         assert event.payload["value"] == 0.05
 
-    def test_payload_contains_sample_fields(self, sg_metrics, ed_metrics):
+    def test_payload_contains_sample_fields(self, sg_metrics, det_metrics):
         result = {
             "anomaly": False,
             "reason": None,
@@ -91,7 +91,7 @@ class TestAnomalyEventCreate:
             result=result,
             sample=sample,
             sg_metrics=sg_metrics,
-            ed_metrics=ed_metrics,
+            det_metrics=det_metrics,
         )
 
         assert event.payload["fault"] == 3
@@ -99,7 +99,7 @@ class TestAnomalyEventCreate:
         assert event.payload["sample"]["sample"] == 200
 
     def test_payload_carries_generator_and_detector_metrics(
-        self, sg_metrics, ed_metrics
+        self, sg_metrics, det_metrics
     ):
         result = {
             "anomaly": True,
@@ -113,11 +113,11 @@ class TestAnomalyEventCreate:
             result=result,
             sample=sample,
             sg_metrics=sg_metrics,
-            ed_metrics=ed_metrics,
+            det_metrics=det_metrics,
         )
 
         assert event.payload["sg_metrics"] == sg_metrics
-        assert event.payload["ed_metrics"] == ed_metrics
+        assert event.payload["det_metrics"] == det_metrics
 
     def test_handles_missing_metrics(self):
         result = {
@@ -131,7 +131,7 @@ class TestAnomalyEventCreate:
         event = AnomalyEvent.create(result=result, sample=sample)
 
         assert event.payload["sg_metrics"] == {}
-        assert event.payload["ed_metrics"] == {}
+        assert event.payload["det_metrics"] == {}
 
     def test_handles_missing_sample_fields(self):
         result = {
@@ -160,6 +160,6 @@ class TestAnomalyEventCreate:
         event = AnomalyEvent.create(result=result, sample=sample)
         d = event.to_dict()
 
-        assert d["source"] == "edge-detector"
+        assert d["source"] == "detector"
         assert "timestamp" in d
         assert "payload" in d

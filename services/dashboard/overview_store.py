@@ -6,7 +6,7 @@ metrics consumed by the System Overview home page:
 * Detection latency  — sensor generation → anomaly detection completion.
 * Diagnosis latency  — cloud request start → diagnosis result publication.
 * End-to-end latency — sensor generation → final diagnosis published.
-* Cloud communication — bytes escalated to the cloud diagnosis service.
+* Cloud communication — bytes escalated to the diagnosis service.
 * Runtime summary     — diagnosis requests, escalations, queue depth, risk.
 
 The store subscribes to ``anomaly/detected``, ``orchestrator/decision`` and
@@ -94,15 +94,15 @@ class OverviewStore:
     def handle_anomaly(self, envelope: dict) -> None:
         payload = envelope.get("payload", {})
         now = time.time()
-        ed_metrics = payload.get("ed_metrics") or {}
+        det_metrics = payload.get("det_metrics") or {}
         completed_ts = (
-            _parse_ts(ed_metrics.get("inference_ended_at"))
+            _parse_ts(det_metrics.get("inference_ended_at"))
             or _parse_ts(envelope.get("timestamp"))
             or now
         )
         sensor_ts = (
-            _parse_ts(ed_metrics.get("sensor_published_at"))
-            or _parse_ts(ed_metrics.get("received_at"))
+            _parse_ts(det_metrics.get("sensor_published_at"))
+            or _parse_ts(det_metrics.get("received_at"))
         )
 
         with self._lock:
@@ -221,10 +221,10 @@ class OverviewStore:
     def _sensor_timestamp_for_batch(self, payload: dict) -> Optional[float]:
         timestamps = []
         for event in payload.get("event_audit") or []:
-            ed_metrics = event.get("ed_metrics") or {}
+            det_metrics = event.get("det_metrics") or {}
             timestamp = (
-                _parse_ts(ed_metrics.get("sensor_published_at"))
-                or _parse_ts(ed_metrics.get("received_at"))
+                _parse_ts(det_metrics.get("sensor_published_at"))
+                or _parse_ts(det_metrics.get("received_at"))
             )
             if timestamp is not None:
                 timestamps.append(timestamp)
@@ -287,7 +287,7 @@ class OverviewStore:
             return self.risk
 
     def runtime_series(self) -> dict:
-        """Runtime CPU/memory histories for edge detection + cloud diagnosis."""
+        """Runtime CPU/memory histories for detector + classifier."""
         if self._detection_store is not None:
             edge = self._detection_store.recent_runtime()
         else:

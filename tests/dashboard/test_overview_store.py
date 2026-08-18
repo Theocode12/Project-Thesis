@@ -17,14 +17,14 @@ def iso(epoch: float) -> str:
 
 def make_anomaly_envelope(sensor_ts: float, completed_ts: float):
     return {
-        "source": "edge-detector",
+        "source": "detector",
         "timestamp": iso(completed_ts),
         "payload": {
             "anomaly": True,
             "reason": "threshold exceeded",
             "metric": "reconstruction_error",
             "value": 1.5,
-            "ed_metrics": {"received_at": iso(sensor_ts)},
+        "det_metrics": {"received_at": iso(sensor_ts)},
         },
     }
 
@@ -35,7 +35,7 @@ def make_anomaly_with_inference_timestamp(
     envelope_ts: float,
 ):
     envelope = make_anomaly_envelope(sensor_ts, envelope_ts)
-    envelope["payload"]["ed_metrics"]["inference_ended_at"] = (
+    envelope["payload"]["det_metrics"]["inference_ended_at"] = (
         iso(inference_completed_ts)
     )
     return envelope
@@ -48,7 +48,7 @@ def make_anomaly_with_all_timestamps(
     envelope_ts: float,
 ):
     envelope = make_anomaly_envelope(received_ts, envelope_ts)
-    envelope["payload"]["ed_metrics"].update({
+    envelope["payload"]["det_metrics"].update({
         "sensor_published_at": iso(sensor_published_ts),
         "received_at": iso(received_ts),
         "inference_ended_at": iso(inference_completed_ts),
@@ -123,7 +123,7 @@ class TestDetectionLatency:
 
     def test_skips_without_sensor_timestamp(self):
         envelope = make_anomaly_envelope(100.0, 100.012)
-        envelope["payload"]["ed_metrics"] = {}
+        envelope["payload"]["det_metrics"] = {}
         store = OverviewStore()
         store.handle_anomaly(envelope)
 
@@ -220,7 +220,7 @@ class TestDiagnosisAndE2ELatency:
                         "reporting_started_at": iso(199.900),
                     },
                     "event_audit": [{
-                        "ed_metrics": {
+                        "det_metrics": {
                             "sensor_published_at": iso(100.0),
                         },
                     }],

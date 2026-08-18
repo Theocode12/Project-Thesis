@@ -66,7 +66,7 @@ def make_decision(
         "batch": batch or [{"X": 1.0}],
         "batch_size": 1,
         "sg_metrics": {"stream_interval": 0.1},
-        "ed_metrics": {"inference_ended_at": 1000.003},
+        "det_metrics": {"inference_ended_at": 1000.003},
         "event_audit": [],
         "reported": False,
     }
@@ -178,7 +178,7 @@ class TestOrchestratorServiceHandleAnomaly:
         )
 
         envelope = {
-            "source": "edge-detector",
+            "source": "detector",
             "timestamp": "2026-08-06T13:43:24+00:00",
             "payload": {
                 "anomaly": True,
@@ -189,7 +189,7 @@ class TestOrchestratorServiceHandleAnomaly:
                 "simulationRun": 476,
                 "sample": {"faultNumber": 4},
                 "sg_metrics": {"stream_interval": 1.0},
-                "ed_metrics": {},
+            "det_metrics": {},
             },
         }
         for _ in range(10):
@@ -221,7 +221,7 @@ class TestOrchestratorServiceEvaluate:
         assert envelope["payload"]["batch_size"] == 1
         assert "batch" not in envelope["payload"]
         assert envelope["payload"]["or_metrics"] == {"dummy": True}
-        assert envelope["payload"]["ed_metrics"] == {
+        assert envelope["payload"]["det_metrics"] == {
             "inference_ended_at": 1000.003
         }
         assert envelope["payload"]["cloud_payload_bytes"] == 0
@@ -243,7 +243,7 @@ class TestOrchestratorServiceEvaluate:
         assert reported_batch == batch
         meta = mock_reporter.report.call_args[1]["meta"]
         assert meta["batch_id"] == "batch_test123456"
-        assert "ed_metrics" in meta
+        assert "det_metrics" in meta
         assert "event_audit" in meta
         assert "orchestrator_timestamps" in meta
         payload = service.mqtt_service.publish.call_args[0][1]["payload"]

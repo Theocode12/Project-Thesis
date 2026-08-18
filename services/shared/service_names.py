@@ -3,9 +3,8 @@ from enum import Enum
 class ServiceName(str, Enum):
 
     SENSOR_GENERATOR = "sensor-generator"
-    EDGE_DETECTOR = "edge-detector"
+    DETECTOR = "detector"
     ORCHESTRATOR = "orchestrator"
-    EDGE_CLASSIFIER = "edge-classifier"
-    CLOUD_CLASSIFIER = "cloud-classifier"
+    CLASSIFIER = "classifier"
     DASHBOARD = "dashboard"
     DATA_MANAGEMENT = "data-management"

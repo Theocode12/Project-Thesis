@@ -1,7 +1,7 @@
 """Design tokens and visual language for the Edge-Cloud console.
 
 This module is the shared foundation for every service dashboard
-(sensor generator, MQTT broker, edge detection, cloud diagnosis,
+(sensor generator, MQTT broker, detector, classifier,
 orchestrator). New service views should reuse the tokens and component
 classes defined here instead of inventing their own styling.
 """

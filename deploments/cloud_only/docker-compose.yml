@@ -1,0 +1,63 @@
+services:
+  cloud-mqtt:
+    build:
+      context: ../../mqtt
+    container_name: cloud-mqtt
+    ports:
+      - "${CLOUD_MQTT_BIND_ADDRESS:-0.0.0.0}:1883:1883"
+    volumes:
+      - cloud_mqtt_data:/mosquitto/data
+    restart: unless-stopped
+
+  detector:
+    build:
+      context: ../..
+      dockerfile: services/detector/Dockerfile
+    container_name: detector
+    depends_on:
+      - cloud-mqtt
+    cpus: 4.0
+    mem_limit: 4g
+    environment:
+      MQTT_HOST: cloud-mqtt
+      MQTT_PORT: 1883
+    restart: unless-stopped
+
+  orchestrator:
+    build:
+      context: ../..
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: orchestrator
+    depends_on:
+      - cloud-mqtt
+    cpus: 2.0
+    mem_limit: 1g
+    environment:
+      MQTT_HOST: cloud-mqtt
+      MQTT_PORT: 1883
+      EVAL_WINDOW_SECONDS: ${EVAL_WINDOW_SECONDS:-10}
+      ANOMALY_HIGH_RATIO: ${ANOMALY_HIGH_RATIO:-0.5}
+      ANOMALY_LOW_RATIO: ${ANOMALY_LOW_RATIO:-0.1}
+      FALLBACK_STREAM_INTERVAL: ${FALLBACK_STREAM_INTERVAL:-0.1}
+      DIAGNOSIS_ENDPOINT: http://classifier:8000/diagnose
+      DIAGNOSIS_TIMEOUT: ${DIAGNOSIS_TIMEOUT:-5.0}
+    restart: unless-stopped
+
+  classifier:
+    build:
+      context: ../..
+      dockerfile: services/classifier/Dockerfile
+    container_name: classifier
+    depends_on:
+      - cloud-mqtt
+    cpus: 2.0
+    mem_limit: 4g
+    environment:
+      MQTT_HOST: cloud-mqtt
+      MQTT_PORT: 1883
+    ports:
+      - "${DIAGNOSIS_BIND_ADDRESS:-0.0.0.0}:8000:8000"
+    restart: unless-stopped
+
+volumes:
+  cloud_mqtt_data:

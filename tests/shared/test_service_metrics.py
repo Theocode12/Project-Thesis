@@ -23,13 +23,13 @@ class TestServiceMetricsKey:
 
     def test_other_service_prefixes(self):
         assert ServiceMetrics(
-            "edge-detector",
+            "detector",
             collector=make_mock_collector(),
-        ).metrics_key == "ed_metrics"
+        ).metrics_key == "det_metrics"
         assert ServiceMetrics(
-            "cloud-classifier",
+            "classifier",
             collector=make_mock_collector(),
-        ).metrics_key == "cc_metrics"
+        ).metrics_key == "cl_metrics"
         assert ServiceMetrics(
             "classifier",
             collector=make_mock_collector(),

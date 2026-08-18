@@ -160,6 +160,45 @@ class TestSensorGeneratorStore:
 
 class TestDashboardClient:
 
+    def test_hybrid_routes_topics_and_commands_to_the_correct_broker(self):
+        edge_service = MagicMock()
+        cloud_service = MagicMock()
+        dashboard = DashboardClient(
+            edge_mqtt_service=edge_service,
+            cloud_mqtt_service=cloud_service,
+        )
+
+        dashboard.subscribe(MQTTOPIC.SENSOR_RAW, lambda _: None)
+        dashboard.subscribe(MQTTOPIC.CLASSIFIER_STATUS, lambda _: None)
+        dashboard.send_command("sg_start")
+        dashboard.send_command("cl_start")
+
+        edge_service.subscribe.assert_called_once()
+        cloud_service.subscribe.assert_called_once()
+        edge_service.publish.assert_called_once_with(
+            MQTTOPIC.SYSTEM_CONTROL,
+            {"action": "sg_start"},
+        )
+        cloud_service.publish.assert_called_once_with(
+            MQTTOPIC.SYSTEM_CONTROL,
+            {"action": "cl_start"},
+        )
+
+    def test_hybrid_start_requires_both_brokers(self):
+        edge_service = MagicMock()
+        cloud_service = MagicMock()
+        cloud_service.connect.side_effect = ConnectionError("no cloud broker")
+        dashboard = DashboardClient(
+            edge_mqtt_service=edge_service,
+            cloud_mqtt_service=cloud_service,
+        )
+
+        dashboard.start()
+
+        assert dashboard.edge_connected is True
+        assert dashboard.cloud_connected is False
+        assert dashboard.connected is False
+
     @pytest.fixture
     def client(self):
         mqtt_service = MagicMock()

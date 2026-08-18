@@ -145,7 +145,7 @@ class OrchestratorService:
                     "window_end": decision["window_end"],
                     "anomaly_ratio": decision["anomaly_ratio"],
                     "sg_metrics": decision["sg_metrics"],
-                    "ed_metrics": decision["ed_metrics"],
+                    "det_metrics": decision["det_metrics"],
                     "event_audit": decision["event_audit"],
                     "orchestrator_timestamps": {
                         "decision_started_at": decision_started_at,
@@ -192,7 +192,7 @@ class OrchestratorService:
             "anomaly_ratio": decision["anomaly_ratio"],
             "batch_size": decision["batch_size"],
             "sg_metrics": decision["sg_metrics"],
-            "ed_metrics": decision["ed_metrics"],
+            "det_metrics": decision["det_metrics"],
             "event_audit": decision["event_audit"],
             "cloud_payload_bytes": decision.get(
                 "cloud_payload_bytes", 0

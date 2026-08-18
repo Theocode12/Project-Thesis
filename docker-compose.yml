@@ -31,12 +31,12 @@ services:
       MQTT_PORT: 1883
 
 
-  edge-detector:
+  detector:
     build:
       context: .
-      dockerfile: services/edge-detector/Dockerfile
+      dockerfile: services/detector/Dockerfile
 
-    container_name: edge-detector
+    container_name: detector
 
     depends_on:
       - mqtt-broker

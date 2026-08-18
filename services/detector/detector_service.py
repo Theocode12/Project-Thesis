@@ -17,7 +17,7 @@ RATE_WINDOW_SECONDS = 5.0
 LATENCY_WINDOW_SECONDS = 30.0
 
 
-class EdgeDetectorService:
+class DetectorService:
 
     def __init__(
         self,
@@ -29,7 +29,7 @@ class EdgeDetectorService:
         self.mqtt_service = mqtt_service
         self.metrics = (
             metrics or ServiceMetrics(
-                service_name="edge-detector"
+                service_name="detector"
             )
         )
         self.running = False
@@ -42,9 +42,9 @@ class EdgeDetectorService:
         self._last_reconstruction_error = None
         self._last_status_at = 0.0
         self._action_map = {
-            "ed_start": self._cmd_start,
-            "ed_stop": self._cmd_stop,
-            "ed_reset": self._cmd_reset,
+            "det_start": self._cmd_start,
+            "det_stop": self._cmd_stop,
+            "det_reset": self._cmd_reset,
         }
 
     def start(self):
@@ -141,7 +141,7 @@ class EdgeDetectorService:
                 result=result,
                 sample=sample,
                 sg_metrics=inner.get("sg_metrics"),
-                ed_metrics=self.metrics.snapshot(
+                det_metrics=self.metrics.snapshot(
                     extra={
                         "sensor_published_at": payload.get("timestamp")
                     }
@@ -240,11 +240,11 @@ class EdgeDetectorService:
             )
 
             message = MQTTMessageEnvelope.create(
-                source="edge-detector",
+                source="detector",
                 payload=payload,
             )
             self.mqtt_service.publish(
-                MQTTOPIC.EDGE_STATUS,
+                MQTTOPIC.DETECTOR_STATUS,
                 message.to_dict(),
             )
         except Exception:

@@ -1,0 +1,13 @@
+services:
+  sensor-generator:
+    build:
+      context: ../..
+      dockerfile: services/sensor-generator/Dockerfile
+    container_name: sensor-generator
+    volumes:
+      - ../../datasets:/app/datasets:ro
+    environment:
+      MQTT_HOST: ${CLOUD_MQTT_HOST:-cloud-host}
+      MQTT_PORT: ${CLOUD_MQTT_PORT:-1883}
+      STREAM_INTERVAL: ${STREAM_INTERVAL:-0.1}
+    restart: unless-stopped

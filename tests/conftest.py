@@ -6,7 +6,7 @@ PROJECT_ROOT = Path(__file__).parent.parent
 SERVICE_DIRS = [
     PROJECT_ROOT / "services",
     PROJECT_ROOT / "services" / "sensor-generator",
-    PROJECT_ROOT / "services" / "edge-detector",
+    PROJECT_ROOT / "services" / "detector",
     PROJECT_ROOT / "services" / "data-management",
     PROJECT_ROOT / "services" / "orchestrator",
     PROJECT_ROOT / "services" / "classifier",

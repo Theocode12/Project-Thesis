@@ -75,7 +75,7 @@ def make_result_envelope(
             "sample_count": sample_count,
             "prediction_counts": {4: 6},
             "meta": {
-                "ed_metrics": {"inference_ended_at": 1000.003},
+                "det_metrics": {"inference_ended_at": 1000.003},
                 "event_audit": [],
             },
             "cl_metrics": {
@@ -171,7 +171,7 @@ class TestDiagnosisStoreResult:
         store.handle_result(make_result_envelope())
 
         result = store.latest_diagnosis()
-        assert result["meta"]["ed_metrics"]["inference_ended_at"] == 1000.003
+        assert result["meta"]["det_metrics"]["inference_ended_at"] == 1000.003
         assert result["cl_metrics"]["received_at"] == 1000.0
 
     def test_handle_result_stores_latest(self):

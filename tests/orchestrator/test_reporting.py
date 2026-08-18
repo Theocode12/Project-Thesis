@@ -18,8 +18,8 @@ class TestDiagnosisReporter:
         reporter = DiagnosisReporter(endpoint="http://classifier/diagnose")
         batch = [{"xmeas_1": 1.0}]
         meta = {
-            "ed_metrics": {"inference_ended_at": 1000.003},
-            "event_audit": [{"ed_metrics": {"value": "é"}}],
+            "det_metrics": {"inference_ended_at": 1000.003},
+            "event_audit": [{"det_metrics": {"value": "é"}}],
         }
 
         assert reporter.report(batch, meta) is True

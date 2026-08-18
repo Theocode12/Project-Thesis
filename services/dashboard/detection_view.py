@@ -1,16 +1,16 @@
-"""Edge Detection service console.
+"""Detector service console.
 
 Renders the operational console for the edge anomaly detection service:
 detector state, orchestrator risk, inference throughput, the sparse
 autoencoder reconstruction error (with threshold), compact runtime
 sparklines and an event timeline. Machine controls drive the detector
-over MQTT (``ed_start`` / ``ed_stop`` / ``ed_reset``).
+    over MQTT (``det_start`` / ``det_stop`` / ``det_reset``).
 
 Interaction model mirrors the Sensor Generator page: interactive
 widgets live at the top level, the read-only display (header, metrics,
 chart, runtime panel, timeline) is wrapped in fragments that re-run
 every 0.5s, and the state-driven Start/Stop buttons run inside a 1s
-fragment so their active styling tracks the live edge/status stream.
+    fragment so their active styling tracks the live detector status stream.
 
 The view receives its store and client through the constructor
 (dependency injection) and builds its own controller, keeping the
@@ -250,14 +250,14 @@ class DetectionView:
         col_a = st.columns(2)
         if col_a[0].button(
             "Start",
-            key="btn_ed_start",
+            key="btn_det_start",
             type="primary" if running else "secondary",
             width="stretch",
         ):
             self.controller.send_start()
         if col_a[1].button(
             "Stop",
-            key="btn_ed_stop",
+            key="btn_det_stop",
             type="secondary" if running else "primary",
             width="stretch",
         ):
@@ -269,7 +269,7 @@ class DetectionView:
             st.caption("Detection idle — awaiting start.")
 
     def _render_reset(self) -> None:
-        if st.button("Reset Engine State", key="btn_ed_reset", width="stretch"):
+        if st.button("Reset Engine State", key="btn_det_reset", width="stretch"):
             self.controller.send_reset()
 
     @st.fragment(run_every=0.5)
@@ -360,8 +360,8 @@ class DetectionView:
 
         st.markdown(
             c.page_head(
-                "Edge Detection",
-                "Sparse Autoencoder · Edge Anomaly Detection Service",
+                "Detection",
+                "Sparse Autoencoder · Anomaly Detection Service",
                 "ED",
                 hud,
             ),
