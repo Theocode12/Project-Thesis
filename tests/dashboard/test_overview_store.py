@@ -63,6 +63,7 @@ def make_decision_envelope(
     batch=None,
     batch_id: str = "batch_test123456",
     reporting_started_ts: float | None = None,
+    cloud_payload_bytes: int = 1234,
 ):
     return {
         "source": "orchestrator",
@@ -74,6 +75,7 @@ def make_decision_envelope(
             "anomaly_ratio": 0.7,
             "anomaly_count": 70,
             "window_seconds": 10.0,
+            "cloud_payload_bytes": cloud_payload_bytes,
             "or_metrics": {
                 "reporting_started_at": iso(
                     reporting_started_ts
@@ -280,7 +282,13 @@ class TestCloudCommunication:
 
     def test_empty_batch_counts_zero_bytes(self):
         store = OverviewStore()
-        store.handle_decision(make_decision_envelope(decision_ts=200.0, batch=[]))
+        store.handle_decision(
+            make_decision_envelope(
+                decision_ts=200.0,
+                batch=[],
+                cloud_payload_bytes=0,
+            )
+        )
 
         assert store.data_sent_to_cloud() == 0
         assert store.cloud_escalations() == 1

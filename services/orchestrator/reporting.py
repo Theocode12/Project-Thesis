@@ -1,4 +1,5 @@
 import logging
+import json
 
 import requests
 
@@ -14,6 +15,7 @@ class DiagnosisReporter:
     ):
         self.endpoint = endpoint
         self.timeout = timeout
+        self.last_request_payload_bytes = 0
 
     def is_configured(self) -> bool:
         return bool(self.endpoint)
@@ -24,6 +26,7 @@ class DiagnosisReporter:
         meta: dict | None = None,
     ) -> bool:
         if not self.endpoint:
+            self.last_request_payload_bytes = 0
             log.info(
                 "Diagnosis endpoint not configured, skipping report"
             )
@@ -33,11 +36,14 @@ class DiagnosisReporter:
             "batch": batch,
             "meta": meta or {},
         }
+        body = json.dumps(payload).encode("utf-8")
+        self.last_request_payload_bytes = len(body)
 
         try:
             response = requests.post(
                 self.endpoint,
-                json=payload,
+                data=body,
+                headers={"Content-Type": "application/json"},
                 timeout=self.timeout,
             )
             response.raise_for_status()

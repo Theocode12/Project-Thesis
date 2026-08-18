@@ -16,7 +16,6 @@ through the constructor so the overview never duplicates their ingestion
 logic.
 """
 
-import json
 import os
 import threading
 import time
@@ -51,20 +50,6 @@ def _parse_ts(value) -> Optional[float]:
         return datetime.fromisoformat(str(value)).timestamp()
     except (TypeError, ValueError):
         return None
-
-
-def _batch_bytes(batch) -> int:
-    """Serialized size in bytes of an escalated batch (cloud payload).
-
-    An empty batch carries no sample data, so it contributes zero bytes to
-    the "data sent to cloud" total.
-    """
-    if not batch:
-        return 0
-    try:
-        return len(json.dumps(batch).encode("utf-8"))
-    except Exception:
-        return 0
 
 
 class OverviewStore:
@@ -138,7 +123,6 @@ class OverviewStore:
         decision = payload.get("decision")
         risk = RISK_MAP.get(decision)
         reported = bool(payload.get("reported"))
-        batch = payload.get("batch") or []
 
         with self._lock:
             self._seen = True
@@ -163,7 +147,9 @@ class OverviewStore:
 
             if decision == "anomaly" and reported:
                 self.escalations += 1
-                self.bytes_sent_to_cloud += _batch_bytes(batch)
+                self.bytes_sent_to_cloud += int(
+                    payload.get("cloud_payload_bytes") or 0
+                )
 
                 batch_id = payload.get("batch_id")
                 if not batch_id:

@@ -131,6 +131,7 @@ class OrchestratorService:
         decision_ended_at = self.metrics.mark(
             "decision_ended_at"
         )
+        decision["cloud_payload_bytes"] = 0
 
         if decision["decision"] == "anomaly":
             reporting_started_at = self.metrics.mark(
@@ -154,6 +155,14 @@ class OrchestratorService:
                 },
             )
             self.metrics.mark("reporting_ended_at")
+            if decision["reported"]:
+                decision["cloud_payload_bytes"] = int(
+                    getattr(
+                        self.reporter,
+                        "last_request_payload_bytes",
+                        0,
+                    )
+                )
 
         self._publish_decision(decision)
 
@@ -185,6 +194,9 @@ class OrchestratorService:
             "sg_metrics": decision["sg_metrics"],
             "ed_metrics": decision["ed_metrics"],
             "event_audit": decision["event_audit"],
+            "cloud_payload_bytes": decision.get(
+                "cloud_payload_bytes", 0
+            ),
             "reported": decision["reported"],
             "or_metrics": self.metrics.snapshot(),
         }

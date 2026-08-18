@@ -15,7 +15,9 @@ def mock_decision_engine():
 
 @pytest.fixture
 def mock_reporter():
-    return MagicMock()
+    reporter = MagicMock()
+    reporter.last_request_payload_bytes = 0
+    return reporter
 
 
 @pytest.fixture
@@ -222,6 +224,7 @@ class TestOrchestratorServiceEvaluate:
         assert envelope["payload"]["ed_metrics"] == {
             "inference_ended_at": 1000.003
         }
+        assert envelope["payload"]["cloud_payload_bytes"] == 0
 
     def test_reports_batch_when_anomaly(
         self, service, mock_decision_engine, mock_reporter
@@ -231,6 +234,7 @@ class TestOrchestratorServiceEvaluate:
             decision="anomaly", batch=batch
         )
         mock_reporter.report.return_value = True
+        mock_reporter.last_request_payload_bytes = 1234
 
         service._evaluate()
 
@@ -242,6 +246,8 @@ class TestOrchestratorServiceEvaluate:
         assert "ed_metrics" in meta
         assert "event_audit" in meta
         assert "orchestrator_timestamps" in meta
+        payload = service.mqtt_service.publish.call_args[0][1]["payload"]
+        assert payload["cloud_payload_bytes"] == 1234
 
     def test_no_report_when_normal(
         self, service, mock_decision_engine, mock_reporter
