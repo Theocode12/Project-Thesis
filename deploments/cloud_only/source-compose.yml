@@ -11,3 +11,8 @@ services:
       MQTT_PORT: ${CLOUD_MQTT_PORT:-1883}
       STREAM_INTERVAL: ${STREAM_INTERVAL:-0.1}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

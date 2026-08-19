@@ -2,12 +2,17 @@ services:
   edge-mqtt:
     build:
       context: ../../mqtt
-    container_name: edge-only-mqtt
+    container_name: edge-mqtt
     ports:
       - "${EDGE_MQTT_BIND_ADDRESS:-0.0.0.0}:1883:1883"
     volumes:
       - edge_mqtt_data:/mosquitto/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t healthcheck -r -m ok && mosquitto_sub -h 127.0.0.1 -p 1883 -t healthcheck -C 1 -W 2 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   sensor-generator:
     build:
@@ -23,6 +28,11 @@ services:
       MQTT_PORT: 1883
       STREAM_INTERVAL: ${STREAM_INTERVAL:-0.1}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   detector:
     build:
@@ -37,6 +47,11 @@ services:
       MQTT_HOST: edge-mqtt
       MQTT_PORT: 1883
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   orchestrator:
     build:
@@ -54,23 +69,14 @@ services:
       ANOMALY_HIGH_RATIO: ${ANOMALY_HIGH_RATIO:-0.5}
       ANOMALY_LOW_RATIO: ${ANOMALY_LOW_RATIO:-0.1}
       FALLBACK_STREAM_INTERVAL: ${FALLBACK_STREAM_INTERVAL:-0.1}
-      DIAGNOSIS_ENDPOINT: http://classifier:8000/diagnose
+      DIAGNOSIS_ENDPOINT: ${DIAGNOSIS_ENDPOINT:-http://cloud-host:8000/diagnose}
       DIAGNOSIS_TIMEOUT: ${DIAGNOSIS_TIMEOUT:-5.0}
     restart: unless-stopped
-
-  classifier:
-    build:
-      context: ../..
-      dockerfile: services/classifier/Dockerfile
-    container_name: classifier
-    depends_on:
-      - edge-mqtt
-    cpus: 1.0
-    mem_limit: 1g
-    environment:
-      MQTT_HOST: edge-mqtt
-      MQTT_PORT: 1883
-    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 volumes:
   edge_mqtt_data:

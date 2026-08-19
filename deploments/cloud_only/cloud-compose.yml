@@ -8,6 +8,11 @@ services:
     volumes:
       - cloud_mqtt_data:/mosquitto/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -t healthcheck -r -m ok && mosquitto_sub -h 127.0.0.1 -p 1883 -t healthcheck -C 1 -W 2 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   detector:
     build:
@@ -22,6 +27,11 @@ services:
       MQTT_HOST: cloud-mqtt
       MQTT_PORT: 1883
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   orchestrator:
     build:
@@ -42,6 +52,11 @@ services:
       DIAGNOSIS_ENDPOINT: http://classifier:8000/diagnose
       DIAGNOSIS_TIMEOUT: ${DIAGNOSIS_TIMEOUT:-5.0}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os; os.kill(1, 0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   classifier:
     build:
@@ -58,6 +73,11 @@ services:
     ports:
       - "${DIAGNOSIS_BIND_ADDRESS:-0.0.0.0}:8000:8000"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   cloud_mqtt_data:

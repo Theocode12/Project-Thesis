@@ -1,0 +1,226 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Cloud-only deployment with separate dashboard, processing, and source instances.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  DashboardSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  ProcessingSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  SourceSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  KeyName:
+    Type: String
+    Default: ''
+  AdminCidr:
+    Type: String
+    Default: 0.0.0.0/0
+  RepositoryUrl:
+    Type: String
+  RepositoryRef:
+    Type: String
+    Default: main
+  Domain:
+    Type: String
+    Default: cloud-thesis.devval.dev
+  CaddyCertificate:
+    Type: String
+    NoEcho: true
+  CaddyPrivateKey:
+    Type: String
+    NoEcho: true
+
+Conditions:
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+
+Resources:
+  DashboardSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTPS dashboard access.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminCidr
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-dashboard-sg
+
+  ProcessingSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Private cloud processing services.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1883
+          ToPort: 1883
+          SourceSecurityGroupId: !Ref DashboardSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 1883
+          ToPort: 1883
+          SourceSecurityGroupId: !Ref SourceSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminCidr
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-processing-sg
+
+  SourceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Industrial source simulator access to cloud MQTT.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminCidr
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-source-sg
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  DashboardInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref DashboardSubnetId
+      SecurityGroupIds: [!Ref DashboardSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-dashboard
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-plugin git
+          systemctl enable --now docker
+          rm -rf /opt/project/app
+          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          cd /opt/project/app
+          mkdir -p /opt/project/app/certs
+          cat > /opt/project/app/certs/origin.pem <<'CERT'
+          ${CaddyCertificate}
+          CERT
+          cat > /opt/project/app/certs/origin.key <<'KEY'
+          ${CaddyPrivateKey}
+          KEY
+          chmod 600 /opt/project/app/certs/origin.key
+          chmod 644 /opt/project/app/certs/origin.pem
+          cat > /etc/thesis-dashboard.env <<'ENV'
+          CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp}
+          CLOUD_MQTT_PORT=1883
+          DOMAIN=${Domain}
+          ENV
+          set -a
+          source /etc/thesis-dashboard.env
+          set +a
+          docker compose -f deploments/cloud_only/dashboard-compose.yml up -d --build
+
+  ProcessingInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref ProcessingSubnetId
+      SecurityGroupIds: [!Ref ProcessingSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-processing
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-plugin git
+          systemctl enable --now docker
+          rm -rf /opt/project/app
+          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          cd /opt/project/app
+          docker compose -f deploments/cloud_only/cloud-compose.yml up -d --build
+
+  SourceInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SourceSubnetId
+      SecurityGroupIds: [!Ref SourceSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-source
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-plugin git
+          systemctl enable --now docker
+          rm -rf /opt/project/app
+          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          cd /opt/project/app
+          CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp} \
+            docker compose -f deploments/cloud_only/source-compose.yml up -d --build
+
+Outputs:
+  DashboardPublicIp:
+    Value: !GetAtt DashboardInstance.PublicIp
+  DashboardPrivateIp:
+    Value: !GetAtt DashboardInstance.PrivateIp
+  ProcessingPrivateIp:
+    Value: !GetAtt ProcessingInstance.PrivateIp
+  SourcePrivateIp:
+    Value: !GetAtt SourceInstance.PrivateIp
+  DashboardSecurityGroupId:
+    Value: !Ref DashboardSecurityGroup
+  ProcessingSecurityGroupId:
+    Value: !Ref ProcessingSecurityGroup
+  SourceSecurityGroupId:
+    Value: !Ref SourceSecurityGroup

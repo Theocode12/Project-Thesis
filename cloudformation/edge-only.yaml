@@ -1,0 +1,183 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Edge-only deployment with a separate public dashboard instance.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  DashboardSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  EdgeSubnetId:
+    Type: AWS::EC2::Subnet::Id
+  AmiId:
+    Type: AWS::EC2::Image::Id
+    Description: Ubuntu 22.04 or 24.04 x86_64 AMI.
+  InstanceType:
+    Type: String
+    Default: t3.medium
+  KeyName:
+    Type: String
+    Default: ''
+  AdminCidr:
+    Type: String
+    Default: 0.0.0.0/0
+    Description: Temporary SSH source range for testing.
+  RepositoryUrl:
+    Type: String
+    Description: Git URL accessible by the instances.
+  RepositoryRef:
+    Type: String
+    Default: main
+  Domain:
+    Type: String
+    Default: edge-thesis.devval.dev
+  CaddyCertificate:
+    Type: String
+    NoEcho: true
+  CaddyPrivateKey:
+    Type: String
+    NoEcho: true
+
+Conditions:
+  HasKeyName: !Not [!Equals [!Ref KeyName, '']]
+
+Resources:
+  DashboardSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTPS dashboard access and private MQTT egress.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminCidr
+      Tags:
+        - Key: Name
+          Value: thesis-edge-dashboard-sg
+
+  EdgeSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Private edge services.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1883
+          ToPort: 1883
+          SourceSecurityGroupId: !Ref DashboardSecurityGroup
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AdminCidr
+      Tags:
+        - Key: Name
+          Value: thesis-edge-processing-sg
+
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref InstanceRole]
+
+  DashboardInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref DashboardSubnetId
+      SecurityGroupIds: [!Ref DashboardSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      Tags:
+        - Key: Name
+          Value: thesis-edge-dashboard
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-plugin git
+          systemctl enable --now docker
+          rm -rf /opt/project/app
+          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          cd /opt/project/app
+          mkdir -p /opt/project/app/certs
+          cat > /opt/project/app/certs/origin.pem <<'CERT'
+          ${CaddyCertificate}
+          CERT
+          cat > /opt/project/app/certs/origin.key <<'KEY'
+          ${CaddyPrivateKey}
+          KEY
+          chmod 600 /opt/project/app/certs/origin.key
+          chmod 644 /opt/project/app/certs/origin.pem
+          cat > /etc/thesis-dashboard.env <<'ENV'
+          EDGE_MQTT_HOST=${EdgeInstance.PrivateIp}
+          EDGE_MQTT_PORT=1883
+          DOMAIN=${Domain}
+          ENV
+          set -a
+          source /etc/thesis-dashboard.env
+          set +a
+          docker compose -f deploments/edge_only/dashboard-compose.yml up -d --build
+
+  EdgeInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref EdgeSubnetId
+      SecurityGroupIds: [!Ref EdgeSecurityGroup]
+      IamInstanceProfile: !Ref InstanceProfile
+      KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      Tags:
+        - Key: Name
+          Value: thesis-edge-processing
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y docker.io docker-compose-plugin git
+          systemctl enable --now docker
+          rm -rf /opt/project/app
+          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          cd /opt/project/app
+          docker compose -f deploments/edge_only/edge-compose.yml up -d --build
+
+Outputs:
+  DashboardInstanceId:
+    Value: !Ref DashboardInstance
+  DashboardPublicIp:
+    Value: !GetAtt DashboardInstance.PublicIp
+  DashboardPrivateIp:
+    Value: !GetAtt DashboardInstance.PrivateIp
+  EdgeInstanceId:
+    Value: !Ref EdgeInstance
+  EdgePrivateIp:
+    Value: !GetAtt EdgeInstance.PrivateIp
+  DashboardSecurityGroupId:
+    Value: !Ref DashboardSecurityGroup
+  EdgeSecurityGroupId:
+    Value: !Ref EdgeSecurityGroup
