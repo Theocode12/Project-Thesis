@@ -2,19 +2,21 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Cloud-only deployment with separate dashboard, processing, and source instances.
 
 Parameters:
-  VpcId:
-    Type: AWS::EC2::VPC::Id
-  DashboardSubnetId:
-    Type: AWS::EC2::Subnet::Id
-  ProcessingSubnetId:
-    Type: AWS::EC2::Subnet::Id
-  SourceSubnetId:
-    Type: AWS::EC2::Subnet::Id
-  AmiId:
-    Type: AWS::EC2::Image::Id
-  InstanceType:
+  VpcCidr:
     Type: String
-    Default: t3.medium
+    Default: 10.0.0.0/16
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+  DashboardInstanceType:
+    Type: String
+    Default: t3.small
+  ProcessingInstanceType:
+    Type: String
+    Default: t3.large
+  SourceInstanceType:
+    Type: String
+    Default: t3.small
   KeyName:
     Type: String
     Default: ''
@@ -40,11 +42,67 @@ Conditions:
   HasKeyName: !Not [!Equals [!Ref KeyName, '']]
 
 Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-public
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: thesis-cloud-public-routes
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet
+
   DashboardSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Public HTTPS dashboard access.
-      VpcId: !Ref VpcId
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
@@ -66,7 +124,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Private cloud processing services.
-      VpcId: !Ref VpcId
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 1883
@@ -88,7 +146,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Industrial source simulator access to cloud MQTT.
-      VpcId: !Ref VpcId
+      VpcId: !Ref VPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
@@ -120,8 +178,8 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref AmiId
-      InstanceType: !Ref InstanceType
-      SubnetId: !Ref DashboardSubnetId
+      InstanceType: !Ref DashboardInstanceType
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds: [!Ref DashboardSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
@@ -162,8 +220,8 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref AmiId
-      InstanceType: !Ref InstanceType
-      SubnetId: !Ref ProcessingSubnetId
+      InstanceType: !Ref ProcessingInstanceType
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds: [!Ref ProcessingSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
@@ -187,8 +245,8 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref AmiId
-      InstanceType: !Ref InstanceType
-      SubnetId: !Ref SourceSubnetId
+      InstanceType: !Ref SourceInstanceType
+      SubnetId: !Ref PublicSubnet
       SecurityGroupIds: [!Ref SourceSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]

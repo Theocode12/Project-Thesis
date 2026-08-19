@@ -1,9 +1,9 @@
 # CloudFormation Deployments
 
-These templates assume that the VPC and subnets already exist. The dashboard
-subnet must provide a public IPv4 address and an internet route. Processing and
-source subnets may be private, but they need NAT or another outbound path for
-the initial `apt-get` and Git bootstrap.
+Each template creates its own VPC, internet gateway, route table, and public
+subnet. All instances receive public IP addresses for the testing phase. The
+security groups still keep MQTT and classifier ports restricted to the
+required instance-to-instance paths.
 
 ## Templates
 
@@ -29,9 +29,9 @@ security groups together, so there is no cross-stack dependency cycle.
 
 ## Important Parameters
 
-- `AmiId` should be an Ubuntu 22.04 or 24.04 x86_64 image with cloud-init.
+- `AmiId` defaults to the regional Ubuntu 24.04 x86_64 public SSM parameter.
 - `AdminCidr` controls temporary SSH access and defaults to `0.0.0.0/0` for
   testing. Restrict it before any sustained deployment.
 - `RepositoryRef` selects the Git branch or tag used by the instances.
-- Private MQTT and classifier addresses should be private IPs or private DNS
-  names, not public endpoints.
+- MQTT and classifier connections use private instance IPs even though the
+  instances are in a public subnet.
