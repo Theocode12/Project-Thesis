@@ -11,13 +11,16 @@ Parameters:
     Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   DashboardInstanceType:
     Type: String
-    Default: t3.small
+    Default: t3.micro
+    Description: Free Tier eligible dashboard instance type.
   ProcessingInstanceType:
     Type: String
-    Default: t3.large
+    Default: m7i-flex.large
+    Description: Free Tier eligible cloud processing instance type.
   SourceInstanceType:
     Type: String
-    Default: t3.small
+    Default: t3.micro
+    Description: Free Tier eligible source instance type.
   KeyName:
     Type: String
     Default: ''
@@ -26,9 +29,10 @@ Parameters:
     Default: 0.0.0.0/0
   RepositoryUrl:
     Type: String
+    Default: https://github.com/Theocode12/Project-Thesis.git
   RepositoryRef:
     Type: String
-    Default: main
+    Default: research
   Domain:
     Type: String
     Default: cloud-thesis.devval.dev

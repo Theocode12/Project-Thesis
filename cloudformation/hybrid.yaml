@@ -11,13 +11,16 @@ Parameters:
     Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
   DashboardInstanceType:
     Type: String
-    Default: t3.small
+    Default: t3.micro
+    Description: Free Tier eligible dashboard instance type.
   EdgeInstanceType:
     Type: String
-    Default: t3.medium
+    Default: t3.small
+    Description: Free Tier eligible edge processing instance type.
   CloudInstanceType:
     Type: String
-    Default: t3.large
+    Default: m7i-flex.large
+    Description: Free Tier eligible cloud processing instance type.
   KeyName:
     Type: String
     Default: ''
@@ -27,10 +30,11 @@ Parameters:
     Description: Temporary SSH source range for testing.
   RepositoryUrl:
     Type: String
+    Default: https://github.com/Theocode12/Project-Thesis.git
     Description: Git URL accessible by all instances.
   RepositoryRef:
     Type: String
-    Default: main
+    Default: research
   Domain:
     Type: String
     Default: hybrid-thesis.devval.dev

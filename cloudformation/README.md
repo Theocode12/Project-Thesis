@@ -34,7 +34,11 @@ security groups together, so there is no cross-stack dependency cycle.
 - `AmiId` defaults to the regional Ubuntu 24.04 x86_64 public SSM parameter.
 - `AdminCidr` controls temporary SSH access and defaults to `0.0.0.0/0` for
   testing. Restrict it before any sustained deployment.
-- `RepositoryRef` selects the Git branch or tag used by the instances.
+- `RepositoryRef` selects the Git branch or tag used by the instances; it
+  defaults to `research`.
+- `RepositoryUrl` defaults to `https://github.com/Theocode12/Project-Thesis.git`.
+- Default instance sizing uses `t3.micro` for dashboards and sources,
+  `t3.small` for edge processing, and `m7i-flex.large` for cloud processing.
 - MQTT and classifier connections use private instance IPs even though the
   instances are in a public subnet.
 
