@@ -20,7 +20,8 @@ services:
       dockerfile: services/detector/Dockerfile
     container_name: detector
     depends_on:
-      - cloud-mqtt
+      cloud-mqtt:
+        condition: service_healthy
     cpus: 4.0
     mem_limit: 4g
     environment:
@@ -39,7 +40,8 @@ services:
       dockerfile: services/orchestrator/Dockerfile
     container_name: orchestrator
     depends_on:
-      - cloud-mqtt
+      cloud-mqtt:
+        condition: service_healthy
     cpus: 2.0
     mem_limit: 1g
     environment:
@@ -64,7 +66,8 @@ services:
       dockerfile: services/classifier/Dockerfile
     container_name: classifier
     depends_on:
-      - cloud-mqtt
+      cloud-mqtt:
+        condition: service_healthy
     cpus: 2.0
     mem_limit: 4g
     environment:

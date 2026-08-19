@@ -5,6 +5,7 @@ Parameters:
   VpcCidr:
     Type: String
     Default: 10.0.0.0/16
+    Description: VPC CIDR; use a range from /16 through /24.
   AmiId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
@@ -69,7 +70,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref VPC
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: !Select [0, !Cidr [!Ref VpcCidr, 1, 4]]
       AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: true
       Tags:
@@ -190,12 +191,29 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
+          exec > >(tee -a /var/log/thesis-bootstrap.log) 2>&1
+          retry() {
+            local attempts=0
+            until "$@"; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 5 ]; then return 1; fi
+              sleep 10
+            done
+          }
+          wait_for_port() {
+            local host="$1" port="$2" attempts=0
+            until (echo > "/dev/tcp/$host/$port") 2>/dev/null; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 60 ]; then return 1; fi
+              sleep 2
+            done
+          }
           export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y docker.io docker-compose-plugin git
-          systemctl enable --now docker
-          rm -rf /opt/project/app
-          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+          retry apt-get update
+          retry apt-get install -y docker.io docker-compose-plugin git
+           systemctl enable --now docker
+           rm -rf /opt/project/app
+          retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
           cd /opt/project/app
           mkdir -p /opt/project/app/certs
           cat > /opt/project/app/certs/origin.pem <<'CERT'
@@ -214,6 +232,8 @@ Resources:
           set -a
           source /etc/thesis-dashboard.env
           set +a
+          wait_for_port "$CLOUD_MQTT_HOST" "$CLOUD_MQTT_PORT"
+          docker compose -f deploments/cloud_only/dashboard-compose.yml config -q
           docker compose -f deploments/cloud_only/dashboard-compose.yml up -d --build
 
   ProcessingInstance:
@@ -232,13 +252,23 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
+          exec > >(tee -a /var/log/thesis-bootstrap.log) 2>&1
+          retry() {
+            local attempts=0
+            until "$@"; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 5 ]; then return 1; fi
+              sleep 10
+            done
+          }
           export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y docker.io docker-compose-plugin git
-          systemctl enable --now docker
-          rm -rf /opt/project/app
-          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
-          cd /opt/project/app
+          retry apt-get update
+          retry apt-get install -y docker.io docker-compose-plugin git
+           systemctl enable --now docker
+           rm -rf /opt/project/app
+          retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+           cd /opt/project/app
+          docker compose -f deploments/cloud_only/cloud-compose.yml config -q
           docker compose -f deploments/cloud_only/cloud-compose.yml up -d --build
 
   SourceInstance:
@@ -257,13 +287,33 @@ Resources:
         Fn::Base64: !Sub |
           #!/bin/bash
           set -euxo pipefail
+          exec > >(tee -a /var/log/thesis-bootstrap.log) 2>&1
+          retry() {
+            local attempts=0
+            until "$@"; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 5 ]; then return 1; fi
+              sleep 10
+            done
+          }
+          wait_for_port() {
+            local host="$1" port="$2" attempts=0
+            until (echo > "/dev/tcp/$host/$port") 2>/dev/null; do
+              attempts=$((attempts + 1))
+              if [ "$attempts" -ge 60 ]; then return 1; fi
+              sleep 2
+            done
+          }
           export DEBIAN_FRONTEND=noninteractive
-          apt-get update
-          apt-get install -y docker.io docker-compose-plugin git
-          systemctl enable --now docker
-          rm -rf /opt/project/app
-          git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
-          cd /opt/project/app
+          retry apt-get update
+          retry apt-get install -y docker.io docker-compose-plugin git
+           systemctl enable --now docker
+           rm -rf /opt/project/app
+          retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
+           cd /opt/project/app
+          wait_for_port '${ProcessingInstance.PrivateIp}' 1883
+          CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp} \
+            docker compose -f deploments/cloud_only/source-compose.yml config -q
           CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp} \
             docker compose -f deploments/cloud_only/source-compose.yml up -d --build
 

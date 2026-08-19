@@ -20,7 +20,8 @@ services:
       dockerfile: services/classifier/Dockerfile
     container_name: classifier
     depends_on:
-      - cloud-mqtt
+      cloud-mqtt:
+        condition: service_healthy
     cpus: 2.0
     mem_limit: 4g
     environment:

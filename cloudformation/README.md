@@ -1,9 +1,9 @@
 # CloudFormation Deployments
 
 Each template creates its own VPC, internet gateway, route table, and public
-subnet. All instances receive public IP addresses for the testing phase. The
-security groups still keep MQTT and classifier ports restricted to the
-required instance-to-instance paths.
+subnet. The subnet is derived from `VpcCidr`, and all instances receive public
+IP addresses for the testing phase. The security groups still keep MQTT and
+classifier ports restricted to the required instance-to-instance paths.
 
 ## Templates
 
@@ -14,7 +14,9 @@ required instance-to-instance paths.
 
 All templates install Docker, clone `RepositoryUrl`, and start the relevant
 Compose file. The repository URL must be accessible from the instances during
-bootstrap.
+bootstrap. Bootstrap retries package and Git operations, validates the Compose
+file, waits for required cross-instance ports, and writes logs to
+`/var/log/thesis-bootstrap.log`.
 
 ## Certificate Parameters
 
@@ -35,3 +37,40 @@ security groups together, so there is no cross-stack dependency cycle.
 - `RepositoryRef` selects the Git branch or tag used by the instances.
 - MQTT and classifier connections use private instance IPs even though the
   instances are in a public subnet.
+
+## Validation
+
+Before creating a stack, validate the template with the AWS CLI:
+
+```bash
+aws cloudformation validate-template \
+  --template-body file://cloudformation/hybrid.yaml
+```
+
+Run the same command for `edge-only.yaml` and `cloud-only.yaml`. Validate each
+Compose file from the repository root:
+
+```bash
+docker compose -f deploments/edge_only/edge-compose.yml config -q
+docker compose -f deploments/edge_only/dashboard-compose.yml config -q
+docker compose -f deploments/cloud_only/cloud-compose.yml config -q
+docker compose -f deploments/cloud_only/dashboard-compose.yml config -q
+docker compose -f deploments/cloud_only/source-compose.yml config -q
+docker compose -f deploments/hybrid/edge-compose.yml config -q
+docker compose -f deploments/hybrid/cloud-compose.yml config -q
+docker compose -f deploments/hybrid/dashboard-compose.yml config -q
+
+## Smoke Tests
+
+After stack creation, confirm the dashboard URL from the stack output, then
+check the instance bootstrap logs through SSM:
+
+```bash
+sudo tail -n 200 /var/log/thesis-bootstrap.log
+docker compose -f deploments/<mode>/<file>.yml ps
+```
+
+For `edge-only`, verify dashboard-to-edge MQTT and the local classifier. For
+`cloud-only`, verify dashboard/source-to-cloud MQTT and the cloud classifier.
+For `hybrid`, verify both dashboard broker connections and the edge diagnosis
+request to the cloud private endpoint.

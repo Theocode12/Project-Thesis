@@ -20,7 +20,8 @@ services:
       dockerfile: services/sensor-generator/Dockerfile
     container_name: sensor-generator
     depends_on:
-      - edge-mqtt
+      edge-mqtt:
+        condition: service_healthy
     volumes:
       - ../../datasets:/app/datasets:ro
     environment:
@@ -40,7 +41,8 @@ services:
       dockerfile: services/detector/Dockerfile
     container_name: detector
     depends_on:
-      - edge-mqtt
+      edge-mqtt:
+        condition: service_healthy
     cpus: 1.0
     mem_limit: 512m
     environment:
@@ -59,7 +61,8 @@ services:
       dockerfile: services/orchestrator/Dockerfile
     container_name: orchestrator
     depends_on:
-      - edge-mqtt
+      edge-mqtt:
+        condition: service_healthy
     cpus: 0.5
     mem_limit: 256m
     environment:
@@ -84,7 +87,8 @@ services:
       dockerfile: services/classifier/Dockerfile
     container_name: classifier
     depends_on:
-      - edge-mqtt
+      edge-mqtt:
+        condition: service_healthy
     cpus: 1.0
     mem_limit: 1g
     environment:

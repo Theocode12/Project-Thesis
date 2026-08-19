@@ -25,7 +25,8 @@ services:
     image: caddy:2
     container_name: hybrid-dashboard-proxy
     depends_on:
-      - dashboard
+      dashboard:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
