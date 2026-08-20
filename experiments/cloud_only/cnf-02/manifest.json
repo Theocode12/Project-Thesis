@@ -4,19 +4,20 @@
   "scenario": "baseline",
   "fault": 0,
   "tep_run": 150,
+  "run_selection_mode": "sequential",
   "stream_interval_seconds": 0.1,
   "repetition": 2,
   "phase": "normal",
-  "started_at": "2026-08-20T20:34:40.814159+00:00",
+  "started_at": "2026-08-20T22:36:11.523533+00:00",
   "status": "completed",
   "phase_changes": [
     {
       "phase": "warmup",
-      "timestamp": "2026-08-20T20:34:40.814159+00:00"
+      "timestamp": "2026-08-20T22:36:11.523533+00:00"
     },
     {
       "phase": "normal",
-      "timestamp": "2026-08-20T20:34:54.256986+00:00"
+      "timestamp": "2026-08-20T22:36:29.158023+00:00"
     }
   ],
   "files": [
@@ -26,5 +27,5 @@
     "service_metrics.jsonl",
     "commands.jsonl"
   ],
-  "ended_at": "2026-08-20T20:39:55.084430+00:00"
+  "ended_at": "2026-08-20T22:41:30.350501+00:00"
 }
