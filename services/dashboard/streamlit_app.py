@@ -111,6 +111,7 @@ def experiment_controls(resources: dict) -> None:
             else "Not recording"
         )
         st.caption(status)
+        st.caption(st.session_state.get("experiment_recorder_message", ""))
         experiment_id = st.text_input("Experiment ID", key="experiment_id")
         scenario = st.text_input("Scenario", value="baseline", key="experiment_scenario")
         fault = st.number_input("Fault", min_value=0, value=0, step=1, key="experiment_fault")
@@ -151,22 +152,34 @@ def experiment_controls(resources: dict) -> None:
         )
 
         if start_clicked and not recorder.active:
-            recorder.start(
-                {
-                    "experiment_id": experiment_id,
-                    "deployment_mode": client.mode,
-                    "scenario": scenario,
-                    "fault": fault,
-                    "tep_run": run,
-                    "stream_interval_seconds": interval,
-                    "repetition": repetition,
-                    "phase": "warmup",
-                }
-            )
+            try:
+                recorder.start(
+                    {
+                        "experiment_id": experiment_id,
+                        "deployment_mode": client.mode,
+                        "scenario": scenario,
+                        "fault": fault,
+                        "tep_run": run,
+                        "stream_interval_seconds": interval,
+                        "repetition": repetition,
+                        "phase": "warmup",
+                    }
+                )
+                st.session_state["experiment_recorder_message"] = "Recording started"
+            except Exception as exc:
+                st.session_state["experiment_recorder_message"] = (
+                    f"Recorder error: {exc}"
+                )
         if mark_clicked and recorder.active:
             recorder.set_phase(phase)
+            st.session_state["experiment_recorder_message"] = (
+                f"Phase marked: {phase}"
+            )
         if stop_clicked and recorder.active:
-            recorder.stop()
+            directory = recorder.stop()
+            st.session_state["experiment_recorder_message"] = (
+                f"Saved: {directory}"
+            )
 
 
 def service_rail() -> str:

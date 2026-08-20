@@ -1005,7 +1005,6 @@ class OverviewView:
     # entry point
     # ------------------------------------------------------------------ #
 
-    @st.fragment(run_every=1.0)
     def render(self) -> None:
         self._render_header()
 

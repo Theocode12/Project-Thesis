@@ -107,22 +107,35 @@ class ExperimentRecorder:
             )
             self._writer.start()
 
+            started_at = _now_iso()
             manifest = {
                 **metadata,
                 "experiment_id": experiment_id,
-                "started_at": _now_iso(),
+                "started_at": started_at,
                 "status": "running",
+                "phase": self._phase,
+                "phase_changes": [
+                    {"phase": self._phase, "timestamp": started_at}
+                ],
                 "files": list(self._files),
             }
             self._write_json(directory / "manifest.json", manifest)
             return experiment_id
 
     def set_phase(self, phase: str, metadata: dict[str, Any] | None = None) -> None:
+        phase_record = {"phase": phase, "timestamp": _now_iso(), **(metadata or {})}
         with self._lock:
             if self._experiment_id is None:
                 return
             self._phase = phase
-        self.record_command("phase", {"phase": phase, **(metadata or {})})
+            directory = self._directory
+            manifest_path = directory / "manifest.json" if directory else None
+            if manifest_path is not None:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["phase"] = phase
+                manifest.setdefault("phase_changes", []).append(phase_record)
+                self._write_json(manifest_path, manifest)
+        self.record_command("phase", phase_record)
 
     def record_command(
         self,

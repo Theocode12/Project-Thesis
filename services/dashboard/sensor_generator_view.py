@@ -293,7 +293,6 @@ class SensorGeneratorView:
             unsafe_allow_html=True,
         )
 
-    @st.fragment(run_every=1.0)
     def _render_controls(self) -> None:
         running = _read_state(self.store)["running"]
 
@@ -425,7 +424,6 @@ class SensorGeneratorView:
             st.session_state["last_interval"] = interval
         st.session_state["vsg_interval_choice"] = True
 
-    @st.fragment(run_every=1.0)
     def _render_fault(self) -> None:
         self._sync_stream_controls()
 
@@ -446,7 +444,6 @@ class SensorGeneratorView:
             on_change=self._on_run_change,
         )
 
-    @st.fragment(run_every=1.0)
     def _render_stream_interval(self) -> None:
         self._sync_interval()
 
@@ -513,7 +510,6 @@ class SensorGeneratorView:
     # read-only display fragments (safe to re-run every 0.5s)
     # --------------------------------------------------------------------- #
 
-    @st.fragment(run_every=1.0)
     def _render_live(self) -> None:
         state = _read_state(self.store)
         state["label"], state["tone"] = _overall_state(state["running"])
@@ -554,7 +550,6 @@ class SensorGeneratorView:
 
         self._render_metrics(state)
 
-    @st.fragment(run_every=1.0)
     def _render_chart(self) -> None:
         xmeas = list(st.session_state.get(K_XMEAS, []))
         xmv = list(st.session_state.get(K_XMV, []))
@@ -574,7 +569,6 @@ class SensorGeneratorView:
                 unsafe_allow_html=True,
             )
 
-    @st.fragment(run_every=1.0)
     def _render_timeline(self) -> None:
         st.markdown(
             c.panel_open("Event Timeline", "action log"),

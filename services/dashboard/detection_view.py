@@ -243,7 +243,6 @@ class DetectionView:
             unsafe_allow_html=True,
         )
 
-    @st.fragment(run_every=1.0)
     def _render_controls(self) -> None:
         running = self.store.detection_enabled is True
 
@@ -272,7 +271,6 @@ class DetectionView:
         if st.button("Reset Engine State", key="btn_det_reset", width="stretch"):
             self.controller.send_reset()
 
-    @st.fragment(run_every=1.0)
     def _render_chart(self) -> None:
         scores = self.store.recent_scores()
         if scores:
@@ -290,7 +288,6 @@ class DetectionView:
                 unsafe_allow_html=True,
             )
 
-    @st.fragment(run_every=1.0)
     def _render_runtime(self) -> None:
         runtime = self.store.recent_runtime()
 
@@ -330,7 +327,6 @@ class DetectionView:
     # read-only display fragments (safe to re-run every 0.5s)
     # --------------------------------------------------------------------- #
 
-    @st.fragment(run_every=1.0)
     def _render_live(self) -> None:
         store = self.store
         connected = self.client.is_connected()
@@ -379,7 +375,6 @@ class DetectionView:
 
         self._render_metrics()
 
-    @st.fragment(run_every=1.0)
     def _render_timeline(self) -> None:
         st.markdown(
             c.panel_open("Event Timeline", "detector + orchestrator log"),
