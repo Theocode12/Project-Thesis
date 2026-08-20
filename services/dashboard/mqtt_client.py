@@ -54,11 +54,13 @@ class DashboardClient:
         mqtt_config: Optional[MQTTConfig] = None,
         edge_mqtt_service: Optional[MQTTService] = None,
         cloud_mqtt_service: Optional[MQTTService] = None,
+        event_recorder=None,
     ) -> None:
         self.mode = os.getenv("DEPLOYMENT_MODE", "").strip().lower()
         self.mqtt_service = mqtt_service
         self.edge_mqtt_service = edge_mqtt_service
         self.cloud_mqtt_service = cloud_mqtt_service
+        self.event_recorder = event_recorder
 
         if mqtt_service is None and self.mode == "hybrid":
             self.edge_mqtt_service = edge_mqtt_service or MQTTService(
@@ -139,10 +141,38 @@ class DashboardClient:
     def send_command(self, action: str, **params: Any) -> None:
         payload = {"action": action, **params}
         log.info("Sending command: %s", payload)
+        if self.event_recorder is not None:
+            self.event_recorder.record_command(
+                action,
+                params,
+                self.broker_name_for_command(action),
+            )
         self._service_for_command(action).publish(
             MQTTOPIC.SYSTEM_CONTROL,
             payload,
         )
+
+    def broker_name_for_topic(self, topic: MQTTOPIC) -> str:
+        services = self._broker_services()
+        if len(services) == 1:
+            return next(iter(services))
+        if topic in {
+            MQTTOPIC.SENSOR_RAW,
+            MQTTOPIC.SENSOR_STATUS,
+            MQTTOPIC.ANOMALY_DETECTED,
+            MQTTOPIC.DETECTOR_STATUS,
+            MQTTOPIC.ORCHESTRATOR_DECISION,
+        }:
+            return "edge"
+        return "cloud"
+
+    def broker_name_for_command(self, action: str) -> str:
+        services = self._broker_services()
+        if len(services) == 1:
+            return next(iter(services))
+        if action.startswith(("sg_", "det_", "orchestrator_")):
+            return "edge"
+        return "cloud"
 
     def _broker_services(self) -> dict[str, MQTTService]:
         if self.edge_mqtt_service is not None or self.cloud_mqtt_service is not None:

@@ -228,6 +228,7 @@ Resources:
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
           cd /opt/project/app
           mkdir -p /opt/project/app/certs
+          mkdir -p /opt/project/app/experiments/hybrid
           printf '%b' '${CaddyCertificate}' > /opt/project/app/certs/origin.pem
           printf '%b' '${CaddyPrivateKey}' > /opt/project/app/certs/origin.key
           chmod 600 /opt/project/app/certs/origin.key

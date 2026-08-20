@@ -4,6 +4,8 @@ services:
       context: ../..
       dockerfile: services/dashboard/Dockerfile
     container_name: edge-only-dashboard
+    volumes:
+      - /opt/project/app/experiments/edge_only:/app/experiments
     environment:
       MQTT_HOST: ${EDGE_MQTT_HOST:-edge-host}
       MQTT_PORT: ${EDGE_MQTT_PORT:-1883}

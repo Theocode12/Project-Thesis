@@ -200,8 +200,9 @@ Resources:
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
-           cd /opt/project/app
+          cd /opt/project/app
           mkdir -p /opt/project/app/certs
+          mkdir -p /opt/project/app/experiments/edge_only
           printf '%b' '${CaddyCertificate}' > /opt/project/app/certs/origin.pem
           printf '%b' '${CaddyPrivateKey}' > /opt/project/app/certs/origin.key
           chmod 600 /opt/project/app/certs/origin.key

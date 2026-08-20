@@ -45,6 +45,11 @@ security groups together, so there is no cross-stack dependency cycle.
   detector and classifier images include CPU PyTorch dependencies.
 - Processing image builds run sequentially to avoid concurrent Docker build
   layers exhausting the instance disk.
+- The dashboard experiment recorder stores data under
+  `/opt/project/app/experiments/{cloud_only|edge_only|hybrid}` and records
+  anomaly, orchestration, classification, and service-status events as JSON
+  Lines files. The directory is part of the cloned repository and can be
+  reviewed or committed as experimental evidence.
 - MQTT and classifier connections use private instance IPs even though the
   instances are in a public subnet.
 

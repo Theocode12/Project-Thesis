@@ -4,6 +4,8 @@ services:
       context: ../..
       dockerfile: services/dashboard/Dockerfile
     container_name: hybrid-dashboard
+    volumes:
+      - /opt/project/app/experiments/hybrid:/app/experiments
     environment:
       MQTT_HOST: ${CLOUD_MQTT_HOST:-cloud-host}
       MQTT_PORT: ${CLOUD_MQTT_PORT:-1883}
