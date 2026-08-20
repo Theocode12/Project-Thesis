@@ -1,1 +1,5 @@
-{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-20T20:59:50.063562+00:00"},"broker":null}
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-20T23:07:30.012589+00:00"},"broker":null}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-20T23:07:30.251975+00:00"},"broker":null}

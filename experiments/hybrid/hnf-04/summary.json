@@ -1,12 +1,12 @@
 {
   "experiment_id": "hnf-04",
   "status": "completed",
-  "ended_at": "2026-08-20T20:57:45.377476+00:00",
+  "ended_at": "2026-08-20T22:59:17.449330+00:00",
   "event_counts": {
     "classifier/status": 158,
-    "sensor/status": 64,
-    "anomaly/detected": 18,
     "detector/status": 158,
+    "sensor/status": 63,
+    "anomaly/detected": 29,
     "orchestrator/decision": 31,
     "orchestrator": 31
   },
