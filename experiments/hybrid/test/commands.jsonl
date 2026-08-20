@@ -1,0 +1,2 @@
+{"action":"phase","parameters":{"phase":"normal"},"broker":null}
+{"action":"sg_set_stream_interval","parameters":{"interval":0.1},"broker":"edge"}
