@@ -1,0 +1,14 @@
+{
+  "experiment_id": "cnf-02",
+  "status": "completed",
+  "ended_at": "2026-08-20T20:39:55.084430+00:00",
+  "event_counts": {
+    "classifier/status": 158,
+    "sensor/status": 63,
+    "detector/status": 157,
+    "orchestrator/decision": 31,
+    "orchestrator": 31,
+    "anomaly/detected": 28
+  },
+  "dropped_records": 0
+}
