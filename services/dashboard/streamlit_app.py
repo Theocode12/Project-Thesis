@@ -160,6 +160,7 @@ def experiment_controls(resources: dict) -> None:
                         "scenario": scenario,
                         "fault": fault,
                         "tep_run": run,
+                        "run_selection_mode": "sequential",
                         "stream_interval_seconds": interval,
                         "repetition": repetition,
                         "phase": "warmup",

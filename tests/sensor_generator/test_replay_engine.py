@@ -62,7 +62,7 @@ class TestReplayEngineSetFault:
         engine.set_fault(fault=5)
 
         assert engine.current_fault == 5
-        assert engine.current_run in [1, 2, 3]
+        assert engine.current_run == 1
         assert engine.current_position == 0
         pd.testing.assert_frame_equal(
             engine.current_dataframe, mock_dataframe
@@ -151,6 +151,29 @@ class TestReplayEngineNextSample:
         assert sample["col1"] == 9.0
         assert sample["_stream"] == {"fault": 1, "run": 42}
         assert engine.current_position == 1
+
+    def test_next_sample_advances_to_next_catalog_run(
+        self, engine, mock_catalog, mock_loader, mock_dataframe
+    ):
+        mock_catalog.get_runs.return_value = [5, 6, 7]
+        mock_dataframe2 = pd.DataFrame({
+            "col1": [9.0],
+            "col2": [90.0],
+        })
+        mock_loader.load_fault_run.side_effect = [
+            mock_dataframe,
+            mock_dataframe2,
+        ]
+
+        engine.start()
+        engine.set_stream(fault=1, run=5)
+        for _ in range(len(mock_dataframe)):
+            engine.next_sample()
+
+        sample = engine.next_sample()
+
+        assert sample["_stream"] == {"fault": 1, "run": 6}
+        mock_loader.load_fault_run.assert_called_with(fault=1, run=6)
 
 
 class TestReplayEngineGetStatus:

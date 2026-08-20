@@ -50,6 +50,8 @@ security groups together, so there is no cross-stack dependency cycle.
   anomaly, orchestration, classification, and service-status events as JSON
   Lines files. The directory is part of the cloned repository and can be
   reviewed or committed as experimental evidence.
+- Sensor replay starts at the selected run and advances through the catalog in
+  sequential order when a run ends; it no longer selects runs randomly.
 - MQTT and classifier connections use private instance IPs even though the
   instances are in a public subnet.
 

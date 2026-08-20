@@ -323,7 +323,7 @@ class SensorGeneratorView:
 
     @staticmethod
     def _run_label(run: int | None) -> str:
-        return str(run) if run is not None else "Auto (random)"
+        return str(run) if run is not None else "Auto (sequential)"
 
     def _sync_stream_controls(self) -> None:
         """Reconcile fault/run widget keys with the authoritative value.
@@ -371,7 +371,7 @@ class SensorGeneratorView:
         self.controller.send_set_fault(selected)
         st.session_state["last_fault"] = selected
         st.session_state["last_run"] = None
-        st.session_state[K_RUN] = "Auto (random)"
+        st.session_state[K_RUN] = "Auto (sequential)"
         st.session_state["vsg_fault_choice"] = True
         st.session_state["vsg_run_choice"] = True
 
@@ -381,7 +381,7 @@ class SensorGeneratorView:
         if selected is None:
             return
         st.session_state["vsg_run_choice"] = True
-        if selected != "Auto (random)":
+        if selected != "Auto (sequential)":
             pinned_run = int(selected)
             if pinned_run != st.session_state.get("last_run"):
                 fault = st.session_state.get(K_FAULT, 0)
@@ -435,12 +435,12 @@ class SensorGeneratorView:
             on_change=self._on_fault_change,
         )
 
-        run_options = ["Auto (random)"] + [str(r) for r in RUNS]
+        run_options = ["Auto (sequential)"] + [str(r) for r in RUNS]
         st.selectbox(
             "Run",
             run_options,
             key=K_RUN,
-            help="Pin a specific simulation run, or let the generator pick randomly.",
+            help="Pin a starting run, or let the generator advance sequentially.",
             on_change=self._on_run_change,
         )
 

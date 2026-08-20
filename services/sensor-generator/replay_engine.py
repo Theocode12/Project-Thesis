@@ -1,4 +1,3 @@
-import random
 from typing import Optional
 
 import pandas as pd
@@ -47,9 +46,7 @@ class ReplayEngine:
             fault
         )
 
-        selected_run = random.choice(
-            runs
-        )
+        selected_run = runs[0]
 
         self.set_stream(
             fault=fault,
@@ -110,9 +107,11 @@ class ReplayEngine:
             self.current_fault
         )
 
-        next_run = random.choice(
-            runs
-        )
+        try:
+            current_index = runs.index(self.current_run)
+        except ValueError:
+            current_index = -1
+        next_run = runs[(current_index + 1) % len(runs)]
 
         self.set_stream(
             fault=self.current_fault,
@@ -125,6 +124,7 @@ class ReplayEngine:
             "running": self.running,
             "fault": self.current_fault,
             "run": self.current_run,
+            "run_selection": "sequential",
             "position": self.current_position,
             "loaded": (
                 self.current_dataframe
