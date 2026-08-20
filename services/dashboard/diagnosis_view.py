@@ -187,7 +187,7 @@ class DiagnosisView:
     # read-only display fragments (safe to re-run every 0.5s)
     # --------------------------------------------------------------------- #
 
-    @st.fragment(run_every=0.5)
+    @st.fragment(run_every=1.0)
     def _render_live(self) -> None:
         store = self.store
         connected = self.client.is_connected()
@@ -237,7 +237,7 @@ class DiagnosisView:
         self._render_status_cards()
         self._render_metrics()
 
-    @st.fragment(run_every=0.5)
+    @st.fragment(run_every=1.0)
     def _render_latest(self) -> None:
         latest = self.store.latest_diagnosis()
         if latest is None:
@@ -256,7 +256,7 @@ class DiagnosisView:
             unsafe_allow_html=True,
         )
 
-    @st.fragment(run_every=0.5)
+    @st.fragment(run_every=1.0)
     def _render_runtime(self) -> None:
         runtime = self.store.recent_runtime()
 
@@ -293,7 +293,7 @@ class DiagnosisView:
 
         st.markdown(cpu_row + mem_row + lat_row, unsafe_allow_html=True)
 
-    @st.fragment(run_every=0.5)
+    @st.fragment(run_every=1.0)
     def _render_timeline(self) -> None:
         st.markdown(
             c.panel_open("Event Timeline", "diagnosis service log"),

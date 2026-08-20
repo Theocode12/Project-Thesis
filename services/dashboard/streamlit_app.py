@@ -105,21 +105,12 @@ def experiment_controls(resources: dict) -> None:
     client = resources["client"]
 
     with st.sidebar.expander("Experiment Recorder", expanded=False):
-        if recorder.active:
-            st.caption(f"Recording: {recorder.experiment_id}")
-            phase = st.selectbox(
-                "Current phase",
-                ["warmup", "normal", "fault", "recovery", "stress"],
-                key="experiment_phase",
-            )
-            if st.button("Mark phase", key="experiment_mark_phase", width="stretch"):
-                recorder.set_phase(phase)
-                st.success(f"Phase marked: {phase}")
-            if st.button("Stop recording", key="experiment_stop", width="stretch"):
-                directory = recorder.stop()
-                st.success(f"Saved: {directory}")
-            return
-
+        status = (
+            f"Recording: {recorder.experiment_id}"
+            if recorder.active
+            else "Not recording"
+        )
+        st.caption(status)
         experiment_id = st.text_input("Experiment ID", key="experiment_id")
         scenario = st.text_input("Scenario", value="baseline", key="experiment_scenario")
         fault = st.number_input("Fault", min_value=0, value=0, step=1, key="experiment_fault")
@@ -134,7 +125,32 @@ def experiment_controls(resources: dict) -> None:
         repetition = st.number_input(
             "Repetition", min_value=1, value=1, step=1, key="experiment_repetition"
         )
-        if st.button("Start recording", key="experiment_start", width="stretch"):
+
+        phase = st.selectbox(
+            "Current phase",
+            ["warmup", "normal", "fault", "recovery", "stress"],
+            key="experiment_phase",
+        )
+        start_clicked = st.button(
+            "Start recording",
+            key="experiment_start",
+            disabled=recorder.active,
+            width="stretch",
+        )
+        mark_clicked = st.button(
+            "Mark phase",
+            key="experiment_mark_phase",
+            disabled=not recorder.active,
+            width="stretch",
+        )
+        stop_clicked = st.button(
+            "Stop recording",
+            key="experiment_stop",
+            disabled=not recorder.active,
+            width="stretch",
+        )
+
+        if start_clicked and not recorder.active:
             recorder.start(
                 {
                     "experiment_id": experiment_id,
@@ -147,7 +163,10 @@ def experiment_controls(resources: dict) -> None:
                     "phase": "warmup",
                 }
             )
-            st.success("Recording started")
+        if mark_clicked and recorder.active:
+            recorder.set_phase(phase)
+        if stop_clicked and recorder.active:
+            recorder.stop()
 
 
 def service_rail() -> str:
