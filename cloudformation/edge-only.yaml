@@ -218,8 +218,8 @@ Resources:
            source /etc/thesis-dashboard.env
            set +a
           wait_for_port "$EDGE_MQTT_HOST" "$EDGE_MQTT_PORT"
-          docker compose -f deploments/edge_only/dashboard-compose.yml config -q
-          docker compose -f deploments/edge_only/dashboard-compose.yml up -d --build
+          docker compose --env-file /etc/thesis-dashboard.env -f deploments/edge_only/dashboard-compose.yml config -q
+          docker compose --env-file /etc/thesis-dashboard.env -f deploments/edge_only/dashboard-compose.yml up -d --build
 
   EdgeInstance:
     Type: AWS::EC2::Instance

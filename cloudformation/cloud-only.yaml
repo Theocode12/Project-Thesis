@@ -238,8 +238,8 @@ Resources:
           source /etc/thesis-dashboard.env
           set +a
           wait_for_port "$CLOUD_MQTT_HOST" "$CLOUD_MQTT_PORT"
-          docker compose -f deploments/cloud_only/dashboard-compose.yml config -q
-          docker compose -f deploments/cloud_only/dashboard-compose.yml up -d --build
+          docker compose --env-file /etc/thesis-dashboard.env -f deploments/cloud_only/dashboard-compose.yml config -q
+          docker compose --env-file /etc/thesis-dashboard.env -f deploments/cloud_only/dashboard-compose.yml up -d --build
 
   ProcessingInstance:
     Type: AWS::EC2::Instance
