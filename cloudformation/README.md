@@ -20,11 +20,13 @@ file, waits for required cross-instance ports, and writes logs to
 
 ## Certificate Parameters
 
-For the current test deployment, pass `CaddyCertificate` and
-`CaddyPrivateKey` as `NoEcho` parameters. The dashboard user data writes them
-to the cloned repository’s `certs/` directory before starting Caddy. This
-matches the relative certificate mounts in the dashboard Compose files. Do
-not expose either value in stack outputs or logs.
+The dashboard certificate and key are loaded automatically from SSM Parameter
+Store parameters named `Certificate-Pem` and `Certificate-Key` in the stack's
+AWS Region. Both parameters must contain the complete PEM blocks, including
+their `BEGIN` and `END` lines. The templates write them to the cloned
+repository's `certs/` directory and validate them before starting Caddy. The
+CloudFormation deployment identity needs `ssm:GetParameter` permission for
+both parameters. Do not expose either value in stack outputs or logs.
 
 The hybrid template directly wires the edge and cloud private IP addresses and
 security groups together, so there is no cross-stack dependency cycle.
@@ -39,6 +41,10 @@ security groups together, so there is no cross-stack dependency cycle.
 - `RepositoryUrl` defaults to `https://github.com/Theocode12/Project-Thesis.git`.
 - Default instance sizing uses `t3.micro` for dashboards and sources,
   `t3.small` for edge processing, and `m7i-flex.large` for cloud processing.
+- Processing instances use an encrypted 30 GB gp3 root volume because the
+  detector and classifier images include CPU PyTorch dependencies.
+- Processing image builds run sequentially to avoid concurrent Docker build
+  layers exhausting the instance disk.
 - MQTT and classifier connections use private instance IPs even though the
   instances are in a public subnet.
 

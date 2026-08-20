@@ -35,10 +35,12 @@ Parameters:
     Type: String
     Default: edge-thesis.devval.dev
   CaddyCertificate:
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: Certificate-Pem
     NoEcho: true
   CaddyPrivateKey:
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: Certificate-Key
     NoEcho: true
 
 Conditions:
@@ -194,20 +196,18 @@ Resources:
           }
           export DEBIAN_FRONTEND=noninteractive
           retry apt-get update
-          retry apt-get install -y docker.io docker-compose-plugin git
+          retry apt-get install -y docker.io docker-compose-v2 git openssl
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
            cd /opt/project/app
           mkdir -p /opt/project/app/certs
-          cat > /opt/project/app/certs/origin.pem <<'CERT'
-          ${CaddyCertificate}
-          CERT
-          cat > /opt/project/app/certs/origin.key <<'KEY'
-          ${CaddyPrivateKey}
-          KEY
+          printf '%b' '${CaddyCertificate}' > /opt/project/app/certs/origin.pem
+          printf '%b' '${CaddyPrivateKey}' > /opt/project/app/certs/origin.key
           chmod 600 /opt/project/app/certs/origin.key
           chmod 644 /opt/project/app/certs/origin.pem
+          openssl x509 -in /opt/project/app/certs/origin.pem -noout
+          openssl pkey -in /opt/project/app/certs/origin.key -noout
           cat > /etc/thesis-dashboard.env <<'ENV'
           EDGE_MQTT_HOST=${EdgeInstance.PrivateIp}
           EDGE_MQTT_PORT=1883
@@ -229,6 +229,13 @@ Resources:
       SecurityGroupIds: [!Ref EdgeSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: thesis-edge-processing
@@ -247,13 +254,19 @@ Resources:
           }
           export DEBIAN_FRONTEND=noninteractive
           retry apt-get update
-          retry apt-get install -y docker.io docker-compose-plugin git
+          retry apt-get install -y docker.io docker-compose-v2 git openssl
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
            cd /opt/project/app
           docker compose -f deploments/edge_only/edge-compose.yml config -q
-          docker compose -f deploments/edge_only/edge-compose.yml up -d --build
+          docker compose -f deploments/edge_only/edge-compose.yml up -d --build edge-mqtt
+          docker compose -f deploments/edge_only/edge-compose.yml build detector
+          docker compose -f deploments/edge_only/edge-compose.yml up -d detector
+          docker compose -f deploments/edge_only/edge-compose.yml build classifier
+          docker compose -f deploments/edge_only/edge-compose.yml up -d classifier
+          docker compose -f deploments/edge_only/edge-compose.yml build sensor-generator orchestrator
+          docker compose -f deploments/edge_only/edge-compose.yml up -d sensor-generator orchestrator
 
 Outputs:
   DashboardInstanceId:

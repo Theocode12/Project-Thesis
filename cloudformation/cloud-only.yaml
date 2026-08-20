@@ -37,10 +37,12 @@ Parameters:
     Type: String
     Default: cloud-thesis.devval.dev
   CaddyCertificate:
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: Certificate-Pem
     NoEcho: true
   CaddyPrivateKey:
-    Type: String
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: Certificate-Key
     NoEcho: true
 
 Conditions:
@@ -214,20 +216,18 @@ Resources:
           }
           export DEBIAN_FRONTEND=noninteractive
           retry apt-get update
-          retry apt-get install -y docker.io docker-compose-plugin git
+          retry apt-get install -y docker.io docker-compose-v2 git openssl
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
           cd /opt/project/app
           mkdir -p /opt/project/app/certs
-          cat > /opt/project/app/certs/origin.pem <<'CERT'
-          ${CaddyCertificate}
-          CERT
-          cat > /opt/project/app/certs/origin.key <<'KEY'
-          ${CaddyPrivateKey}
-          KEY
+          printf '%b' '${CaddyCertificate}' > /opt/project/app/certs/origin.pem
+          printf '%b' '${CaddyPrivateKey}' > /opt/project/app/certs/origin.key
           chmod 600 /opt/project/app/certs/origin.key
           chmod 644 /opt/project/app/certs/origin.pem
+          openssl x509 -in /opt/project/app/certs/origin.pem -noout
+          openssl pkey -in /opt/project/app/certs/origin.key -noout
           cat > /etc/thesis-dashboard.env <<'ENV'
           CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp}
           CLOUD_MQTT_PORT=1883
@@ -249,6 +249,13 @@ Resources:
       SecurityGroupIds: [!Ref ProcessingSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: thesis-cloud-processing
@@ -267,13 +274,17 @@ Resources:
           }
           export DEBIAN_FRONTEND=noninteractive
           retry apt-get update
-          retry apt-get install -y docker.io docker-compose-plugin git
+          retry apt-get install -y docker.io docker-compose-v2 git openssl
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
            cd /opt/project/app
           docker compose -f deploments/cloud_only/cloud-compose.yml config -q
-          docker compose -f deploments/cloud_only/cloud-compose.yml up -d --build
+          docker compose -f deploments/cloud_only/cloud-compose.yml up -d --build cloud-mqtt
+          docker compose -f deploments/cloud_only/cloud-compose.yml build detector
+          docker compose -f deploments/cloud_only/cloud-compose.yml up -d detector
+          docker compose -f deploments/cloud_only/cloud-compose.yml build classifier orchestrator
+          docker compose -f deploments/cloud_only/cloud-compose.yml up -d classifier orchestrator
 
   SourceInstance:
     Type: AWS::EC2::Instance
@@ -310,7 +321,7 @@ Resources:
           }
           export DEBIAN_FRONTEND=noninteractive
           retry apt-get update
-          retry apt-get install -y docker.io docker-compose-plugin git
+          retry apt-get install -y docker.io docker-compose-v2 git openssl
            systemctl enable --now docker
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
