@@ -1,0 +1,31 @@
+{
+  "experiment_id": "enf-05",
+  "deployment_mode": "edge",
+  "scenario": "baseline",
+  "fault": 0,
+  "tep_run": 150,
+  "run_selection_mode": "sequential",
+  "stream_interval_seconds": 0.1,
+  "repetition": 5,
+  "phase": "normal",
+  "started_at": "2026-08-23T10:06:19.331121+00:00",
+  "status": "completed",
+  "phase_changes": [
+    {
+      "phase": "warmup",
+      "timestamp": "2026-08-23T10:06:19.331121+00:00"
+    },
+    {
+      "phase": "normal",
+      "timestamp": "2026-08-23T10:06:36.950055+00:00"
+    }
+  ],
+  "files": [
+    "anomaly_events.jsonl",
+    "orchestration_events.jsonl",
+    "classification_results.jsonl",
+    "service_metrics.jsonl",
+    "commands.jsonl"
+  ],
+  "ended_at": "2026-08-23T10:11:40.985048+00:00"
+}

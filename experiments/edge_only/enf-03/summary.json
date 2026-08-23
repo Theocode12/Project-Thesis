@@ -1,0 +1,14 @@
+{
+  "experiment_id": "enf-03",
+  "status": "completed",
+  "ended_at": "2026-08-23T09:55:48.961698+00:00",
+  "event_counts": {
+    "classifier/status": 159,
+    "detector/status": 159,
+    "sensor/status": 66,
+    "orchestrator/decision": 32,
+    "orchestrator": 32,
+    "anomaly/detected": 34
+  },
+  "dropped_records": 0
+}
