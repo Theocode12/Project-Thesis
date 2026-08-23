@@ -8,20 +8,20 @@
   "stream_interval_seconds": 0.1,
   "repetition": 5,
   "phase": "normal",
-  "started_at": "2026-08-22T08:02:32.095590+00:00",
+  "started_at": "2026-08-23T10:57:23.290036+00:00",
   "status": "completed",
   "phase_changes": [
     {
       "phase": "warmup",
-      "timestamp": "2026-08-22T08:02:32.095590+00:00"
+      "timestamp": "2026-08-23T10:57:23.290036+00:00"
     },
     {
       "phase": "normal",
-      "timestamp": "2026-08-22T08:02:51.105410+00:00"
+      "timestamp": "2026-08-23T10:57:42.131309+00:00"
     },
     {
       "phase": "normal",
-      "timestamp": "2026-08-22T08:02:52.855443+00:00"
+      "timestamp": "2026-08-23T10:57:42.350714+00:00"
     }
   ],
   "files": [
@@ -31,5 +31,5 @@
     "service_metrics.jsonl",
     "commands.jsonl"
   ],
-  "ended_at": "2026-08-22T08:07:51.541134+00:00"
+  "ended_at": "2026-08-23T11:02:42.697256+00:00"
 }
