@@ -1,0 +1,7 @@
+{"action":"sg_start","parameters":{},"broker":"mqtt"}
+{"action":"sg_start","parameters":{},"broker":"mqtt"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-23T19:56:36.947933+00:00"},"broker":null}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-23T19:56:37.605628+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":4},"broker":"mqtt"}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-23T19:57:37.354550+00:00"},"broker":null}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-23T19:57:37.838915+00:00"},"broker":null}

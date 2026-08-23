@@ -1,0 +1,15 @@
+{
+  "experiment_id": "efs-04",
+  "status": "completed",
+  "ended_at": "2026-08-23T20:11:00.180104+00:00",
+  "event_counts": {
+    "classifier/status": 159,
+    "detector/status": 159,
+    "sensor/status": 67,
+    "anomaly/detected": 2228,
+    "orchestrator/decision": 31,
+    "orchestrator": 31,
+    "classification/result": 23
+  },
+  "dropped_records": 0
+}
