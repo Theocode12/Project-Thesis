@@ -1,0 +1,5 @@
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-23T19:36:47.594376+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":4},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-23T19:37:47.876159+00:00"},"broker":null}

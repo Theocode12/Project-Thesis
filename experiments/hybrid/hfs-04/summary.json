@@ -1,0 +1,15 @@
+{
+  "experiment_id": "hfs-04",
+  "status": "completed",
+  "ended_at": "2026-08-23T19:59:11.794024+00:00",
+  "event_counts": {
+    "detector/status": 159,
+    "classifier/status": 159,
+    "sensor/status": 66,
+    "orchestrator/decision": 32,
+    "orchestrator": 32,
+    "anomaly/detected": 2211,
+    "classification/result": 23
+  },
+  "dropped_records": 0
+}
