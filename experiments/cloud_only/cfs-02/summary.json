@@ -1,0 +1,15 @@
+{
+  "experiment_id": "cfs-02",
+  "status": "completed",
+  "ended_at": "2026-08-23T18:50:43.136223+00:00",
+  "event_counts": {
+    "detector/status": 159,
+    "sensor/status": 66,
+    "classifier/status": 158,
+    "orchestrator/decision": 32,
+    "orchestrator": 32,
+    "anomaly/detected": 2210,
+    "classification/result": 24
+  },
+  "dropped_records": 0
+}

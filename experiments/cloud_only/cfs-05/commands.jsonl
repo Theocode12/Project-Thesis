@@ -1,0 +1,5 @@
+{"action":"sg_start","parameters":{},"broker":"mqtt"}
+{"action":"sg_start","parameters":{},"broker":"mqtt"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-23T19:18:02.063257+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":4},"broker":"mqtt"}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-23T19:19:02.548802+00:00"},"broker":null}
