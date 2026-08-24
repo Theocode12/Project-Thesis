@@ -1,7 +1,7 @@
 {
   "experiment_id": "enf-05",
-  "deployment_mode": "edge",
-  "scenario": "baseline",
+  "deployment_mode": "edge_only",
+  "scenario": "fault_free",
   "fault": 0,
   "tep_run": 150,
   "run_selection_mode": "sequential",
@@ -27,5 +27,15 @@
     "service_metrics.jsonl",
     "commands.jsonl"
   ],
-  "ended_at": "2026-08-23T10:11:40.985048+00:00"
+  "ended_at": "2026-08-23T10:11:40.985048+00:00",
+  "original_experiment_id": "enf-05",
+  "original_deployment_mode": "edge",
+  "original_scenario": "baseline",
+  "metadata_source": "experiment_directory_name",
+  "metadata_normalized": true,
+  "metadata_mismatch": true,
+  "metadata_mismatch_fields": [
+    "deployment_mode",
+    "scenario"
+  ]
 }
