@@ -1,0 +1,15 @@
+{
+  "experiment_id": "hfn-05",
+  "status": "completed",
+  "ended_at": "2026-08-24T12:57:52.353302+00:00",
+  "event_counts": {
+    "classifier/status": 159,
+    "detector/status": 158,
+    "sensor/status": 68,
+    "orchestrator/decision": 31,
+    "orchestrator": 31,
+    "anomaly/detected": 1603,
+    "classification/result": 17
+  },
+  "dropped_records": 0
+}

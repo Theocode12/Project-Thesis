@@ -1,0 +1,10 @@
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"sg_start","parameters":{},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-24T12:13:54.384329+00:00"},"broker":null}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-24T12:13:54.638578+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":4},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-24T12:14:56.372434+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":0},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"normal","timestamp":"2026-08-24T12:15:54.915691+00:00"},"broker":null}
+{"action":"sg_set_fault","parameters":{"fault":4},"broker":"edge"}
+{"action":"phase","parameters":{"phase":"fault","timestamp":"2026-08-24T12:16:55.868064+00:00"},"broker":null}
