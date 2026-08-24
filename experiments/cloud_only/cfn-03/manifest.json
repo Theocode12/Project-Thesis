@@ -1,0 +1,43 @@
+{
+  "experiment_id": "cfn-03",
+  "deployment_mode": "cloud",
+  "scenario": "fault-alternate",
+  "fault": 4,
+  "tep_run": 1,
+  "run_selection_mode": "sequential",
+  "stream_interval_seconds": 0.1,
+  "repetition": 3,
+  "phase": "fault",
+  "started_at": "2026-08-24T13:00:50.070582+00:00",
+  "status": "completed",
+  "phase_changes": [
+    {
+      "phase": "warmup",
+      "timestamp": "2026-08-24T13:00:50.070582+00:00"
+    },
+    {
+      "phase": "normal",
+      "timestamp": "2026-08-24T13:01:04.934143+00:00"
+    },
+    {
+      "phase": "fault",
+      "timestamp": "2026-08-24T13:02:06.068776+00:00"
+    },
+    {
+      "phase": "normal",
+      "timestamp": "2026-08-24T13:03:06.001866+00:00"
+    },
+    {
+      "phase": "fault",
+      "timestamp": "2026-08-24T13:04:05.434521+00:00"
+    }
+  ],
+  "files": [
+    "anomaly_events.jsonl",
+    "orchestration_events.jsonl",
+    "classification_results.jsonl",
+    "service_metrics.jsonl",
+    "commands.jsonl"
+  ],
+  "ended_at": "2026-08-24T13:06:05.112600+00:00"
+}

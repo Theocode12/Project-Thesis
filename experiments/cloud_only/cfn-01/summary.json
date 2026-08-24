@@ -1,0 +1,15 @@
+{
+  "experiment_id": "cfn-01",
+  "status": "completed",
+  "ended_at": "2026-08-24T11:24:17.217379+00:00",
+  "event_counts": {
+    "detector/status": 159,
+    "classifier/status": 158,
+    "sensor/status": 68,
+    "orchestrator/decision": 31,
+    "orchestrator": 31,
+    "anomaly/detected": 1635,
+    "classification/result": 17
+  },
+  "dropped_records": 0
+}
