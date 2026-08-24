@@ -1,0 +1,43 @@
+{
+  "experiment_id": "efn-02",
+  "deployment_mode": "edge",
+  "scenario": "baseline",
+  "fault": 4,
+  "tep_run": 1,
+  "run_selection_mode": "sequential",
+  "stream_interval_seconds": 0.1,
+  "repetition": 2,
+  "phase": "fault",
+  "started_at": "2026-08-24T11:46:07.503113+00:00",
+  "status": "completed",
+  "phase_changes": [
+    {
+      "phase": "warmup",
+      "timestamp": "2026-08-24T11:46:07.503113+00:00"
+    },
+    {
+      "phase": "normal",
+      "timestamp": "2026-08-24T11:46:22.532685+00:00"
+    },
+    {
+      "phase": "fault",
+      "timestamp": "2026-08-24T11:47:22.649523+00:00"
+    },
+    {
+      "phase": "normal",
+      "timestamp": "2026-08-24T11:48:23.016369+00:00"
+    },
+    {
+      "phase": "fault",
+      "timestamp": "2026-08-24T11:49:22.784823+00:00"
+    }
+  ],
+  "files": [
+    "anomaly_events.jsonl",
+    "orchestration_events.jsonl",
+    "classification_results.jsonl",
+    "service_metrics.jsonl",
+    "commands.jsonl"
+  ],
+  "ended_at": "2026-08-24T11:51:22.503026+00:00"
+}

@@ -1,0 +1,15 @@
+{
+  "experiment_id": "efn-01",
+  "status": "completed",
+  "ended_at": "2026-08-24T11:44:59.847104+00:00",
+  "event_counts": {
+    "detector/status": 158,
+    "classifier/status": 157,
+    "sensor/status": 68,
+    "orchestrator/decision": 31,
+    "orchestrator": 31,
+    "anomaly/detected": 1615,
+    "classification/result": 17
+  },
+  "dropped_records": 0
+}
