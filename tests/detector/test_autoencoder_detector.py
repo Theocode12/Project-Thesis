@@ -35,12 +35,12 @@ def feature_columns():
     return ["xmeas_1", "xmeas_2"]
 
 
-from autoencoder import SparseAutoEncoder
+from autoencoder import FeedForwardAutoEncoder
 
 
 @pytest.fixture
 def valid_state_dict(feature_columns):
-    model = SparseAutoEncoder(
+    model = FeedForwardAutoEncoder(
         input_size=len(feature_columns),
         hidden_size=128,
         latent_size=64,

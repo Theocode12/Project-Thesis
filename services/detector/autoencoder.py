@@ -77,7 +77,7 @@ class Decoder(nn.Module):
         return self.decoder(z)
 
 
-class SparseAutoEncoder(nn.Module):
+class FeedForwardAutoEncoder(nn.Module):
 
     def __init__(
             self,

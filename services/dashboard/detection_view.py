@@ -398,7 +398,7 @@ class DetectionView:
         col_main, col_side = st.columns([2.15, 1], gap="large")
 
         with col_main:
-            with c.panel("Reconstruction Error", "sparse autoencoder score", key="detect_rec_error"):
+            with c.panel("Reconstruction Error", "autoencoder reconstruction score", key="detect_rec_error"):
                 self._render_chart()
 
         with col_side:

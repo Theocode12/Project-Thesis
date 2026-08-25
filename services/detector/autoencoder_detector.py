@@ -9,7 +9,7 @@ import torch
 import pandas as pd
 
 from detector import Detector
-from autoencoder import SparseAutoEncoder
+from autoencoder import FeedForwardAutoEncoder
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +39,7 @@ class AutoEncoderDetector(Detector):
         self.threshold = float(threshold_json["threshold"])
         log.info("Threshold loaded: %.6f", self.threshold)
 
-        self.model = SparseAutoEncoder(
+        self.model = FeedForwardAutoEncoder(
             input_size=len(self.feature_columns),
             hidden_size=128,
             latent_size=64,
