@@ -1,4 +1,5 @@
 import os
+import threading
 import time
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -97,6 +98,8 @@ class ContainerMetricsSnapshot:
 class ContainerMetricsCollector:
 
     def __init__(self) -> None:
+
+        self._lock = threading.Lock()
 
         self._start_monotonic = time.monotonic()
 
@@ -318,6 +321,10 @@ class ContainerMetricsCollector:
             return None
 
     def snapshot(self) -> ContainerMetricsSnapshot:
+        with self._lock:
+            return self._snapshot()
+
+    def _snapshot(self) -> ContainerMetricsSnapshot:
 
         now = time.monotonic()
         cpu_usage_usec = (

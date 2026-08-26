@@ -290,6 +290,7 @@ def analyse_run(run_dir: Path, dataset_root: Path | None = None) -> dict[str, An
         cloud_bytes = continuous_samples * sample_size if sample_size is not None else None
 
     resource = {service: {"cpu": [], "memory": []} for service in SERVICE_KEYS}
+    previous_cpu: dict[str, tuple[float, float, float]] = {}
     processing = {service: [] for service in SERVICE_KEYS}
     correct_count = 0
     ground_truth_count = 0
@@ -299,10 +300,24 @@ def analyse_run(run_dir: Path, dataset_root: Path | None = None) -> dict[str, An
             continue
         metrics = _metric(record, service)
         container = metrics.get("container") or {}
-        for key, output in (("cpu_percent", "cpu"), ("memory_used_bytes", "memory")):
-            value = _number(container.get(key))
-            if value is not None:
-                resource[service][output].append(value)
+        if record.get("topic") == f"{service}/status":
+            memory = _number(container.get("memory_used_bytes"))
+            if memory is not None:
+                resource[service]["memory"].append(memory)
+            timestamp = _number(record.get("collector_timestamp"))
+            cpu_time = _number(container.get("cpu_time_seconds"))
+            quota = _number(container.get("cpu_cores"))
+            previous = previous_cpu.get(service)
+            if timestamp is not None and cpu_time is not None and quota and quota > 0:
+                if previous is not None:
+                    previous_timestamp, previous_cpu_time, previous_quota = previous
+                    elapsed = timestamp - previous_timestamp
+                    delta_cpu = cpu_time - previous_cpu_time
+                    if elapsed > 0 and delta_cpu >= 0:
+                        resource[service]["cpu"].append(
+                            (delta_cpu / elapsed / previous_quota) * 100
+                        )
+                previous_cpu[service] = (timestamp, cpu_time, quota)
         started = _number(metrics.get("processing_started_at"))
         ended = _number(metrics.get("processing_ended_at"))
         if started is not None and ended is not None and ended >= started:
@@ -324,6 +339,15 @@ def analyse_run(run_dir: Path, dataset_root: Path | None = None) -> dict[str, An
         if decision in decisions_by_type:
             decisions_by_type[decision] += 1
 
+    cloud_escalations = sum(
+        1 for record in decisions
+        if (record.get("payload") or {}).get("reported") is True
+    )
+    escalation_rate = (
+        cloud_escalations / decisions_by_type["anomaly"]
+        if decisions_by_type["anomaly"] else None
+    )
+
     row = {
         "experiment_id": canonical["experiment_id"],
         "deployment_mode": mode,
@@ -337,7 +361,9 @@ def analyse_run(run_dir: Path, dataset_root: Path | None = None) -> dict[str, An
         "normal_decisions": decisions_by_type["normal"],
         "uncertain_decisions": decisions_by_type["uncertain"],
         "anomaly_decisions": decisions_by_type["anomaly"],
-        "cloud_escalations": sum(1 for record in decisions if (record.get("payload") or {}).get("reported") is True),
+        "diagnosis_requests": len(results),
+        "cloud_escalations": cloud_escalations,
+        "escalation_rate": escalation_rate,
         "escalated_samples": escalated_samples,
         "estimated_sample_bytes": sample_size,
         "estimated_cloud_data_bytes": cloud_bytes,
@@ -362,6 +388,21 @@ def analyse_run(run_dir: Path, dataset_root: Path | None = None) -> dict[str, An
     for service, observations in processing.items():
         for key, value in _summary(observations).items():
             row[f"{service}_processing_ms_{key}"] = value
+        if observations:
+            row[f"{service}_peak_processing_ms"] = max(observations)
+    anomaly_ratios = [
+        ratio for record in decisions
+        if (ratio := _number((record.get("payload") or {}).get("anomaly_ratio"))) is not None
+    ]
+    for key, value in _summary(anomaly_ratios).items():
+        row[f"anomaly_ratio_{key}"] = value
+    for service, values in resource.items():
+        if values["cpu"]:
+            row[f"{service}_peak_cpu"] = max(values["cpu"])
+        if values["memory"]:
+            row[f"{service}_peak_memory"] = max(values["memory"])
+    for key, value in _summary(processing["classifier"]).items():
+        row[f"diagnosis_processing_ms_{key}"] = value
     return row
 
 
@@ -413,7 +454,8 @@ def write_outputs(rows: list[dict[str, Any]], output_dir: Path) -> None:
     if not rows:
         return
     with (output_dir / "run_metrics.csv").open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(rows[0]))
+        fieldnames = list(dict.fromkeys(field for row in rows for field in row))
+        writer = csv.DictWriter(stream, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(rows)
     aggregates = aggregate_metrics(rows)
@@ -422,6 +464,21 @@ def write_outputs(rows: list[dict[str, Any]], output_dir: Path) -> None:
         writer = csv.DictWriter(stream, fieldnames=["deployment_mode", "scenario", "metric", "statistic", "value", "run_count"])
         writer.writeheader()
         writer.writerows(aggregates)
+    metric_prefixes = (
+        "detection_latency_ms", "diagnosis_latency_ms", "diagnosis_processing_ms",
+        "e2e_latency_ms", "detector_cpu", "detector_memory", "classifier_cpu",
+        "classifier_memory", "estimated_cloud_data_bytes", "diagnosis_requests",
+        "cloud_escalations", "escalation_rate", "anomaly_events", "anomaly_ratio",
+    )
+    thesis_metrics = [
+        row for row in aggregates
+        if row["metric"].startswith(metric_prefixes)
+    ]
+    (output_dir / "thesis_metrics.json").write_text(json.dumps(thesis_metrics, indent=2, default=str) + "\n", encoding="utf-8")
+    with (output_dir / "thesis_metrics.csv").open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=["deployment_mode", "scenario", "metric", "statistic", "value", "run_count"])
+        writer.writeheader()
+        writer.writerows(thesis_metrics)
 
 
 def print_summary(rows: list[dict[str, Any]]) -> None:

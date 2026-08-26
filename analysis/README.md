@@ -13,6 +13,8 @@ Outputs are written to `results/analysis`:
 
 - `run_metrics.csv` and `run_metrics.json`: one row per experiment
 - `group_metrics.csv` and `group_metrics.json`: long-form statistics grouped by deployment mode and scenario
+- `thesis_metrics.csv` and `thesis_metrics.json`: filtered metrics for thesis tables
+- `thesis_summary.csv` and `thesis_summary.json`: compact one-row-per-group thesis table
 
 Cloud communication is application-data volume only. The estimator serializes
 sensor samples as compact UTF-8 JSON and excludes MQTT, HTTP, envelope,
