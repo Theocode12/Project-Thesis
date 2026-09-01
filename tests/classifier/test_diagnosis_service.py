@@ -193,13 +193,18 @@ class TestDiagnosisServiceProcess:
         assert result["sample_count"] == 2
         assert result["prediction_counts"] == {}
 
-    def test_empty_batch(
-        self, mock_mqtt_service, mock_metrics
-    ):
-        from classifier import HeuristicClassifier
-
+    def test_empty_batch(self, mock_mqtt_service, mock_metrics):
+        classifier = MagicMock()
+        classifier.predict.return_value = {
+            "fault_number": None,
+            "diagnosis": "unknown",
+            "confidence": 0.0,
+            "sample_count": 0,
+            "prediction_counts": {},
+            "accuracy": None,
+        }
         service = DiagnosisService(
-            classifier=HeuristicClassifier(),
+            classifier=classifier,
             mqtt_service=mock_mqtt_service,
             metrics=mock_metrics,
         )

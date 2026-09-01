@@ -170,6 +170,13 @@ Resources:
       SecurityGroupIds: [!Ref DashboardSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: thesis-edge-dashboard
@@ -218,8 +225,8 @@ Resources:
            source /etc/thesis-dashboard.env
            set +a
           wait_for_port "$EDGE_MQTT_HOST" "$EDGE_MQTT_PORT"
-          docker compose --env-file /etc/thesis-dashboard.env -f deploments/edge_only/dashboard-compose.yml config -q
-          docker compose --env-file /etc/thesis-dashboard.env -f deploments/edge_only/dashboard-compose.yml up -d --build
+          docker compose --env-file /etc/thesis-dashboard.env -f deployments/edge_only/dashboard-compose.yml config -q
+          docker compose --env-file /etc/thesis-dashboard.env -f deployments/edge_only/dashboard-compose.yml up -d --build
 
   EdgeInstance:
     Type: AWS::EC2::Instance
@@ -260,14 +267,14 @@ Resources:
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
            cd /opt/project/app
-          docker compose -f deploments/edge_only/edge-compose.yml config -q
-          docker compose -f deploments/edge_only/edge-compose.yml up -d --build edge-mqtt
-          docker compose -f deploments/edge_only/edge-compose.yml build detector
-          docker compose -f deploments/edge_only/edge-compose.yml up -d detector
-          docker compose -f deploments/edge_only/edge-compose.yml build classifier
-          docker compose -f deploments/edge_only/edge-compose.yml up -d classifier
-          docker compose -f deploments/edge_only/edge-compose.yml build sensor-generator orchestrator
-          docker compose -f deploments/edge_only/edge-compose.yml up -d sensor-generator orchestrator
+          docker compose -f deployments/edge_only/edge-compose.yml config -q
+          docker compose -f deployments/edge_only/edge-compose.yml up -d --build edge-mqtt
+          docker compose -f deployments/edge_only/edge-compose.yml build detector
+          docker compose -f deployments/edge_only/edge-compose.yml up -d detector
+          docker compose -f deployments/edge_only/edge-compose.yml build classifier
+          docker compose -f deployments/edge_only/edge-compose.yml up -d classifier
+          docker compose -f deployments/edge_only/edge-compose.yml build sensor-generator orchestrator
+          docker compose -f deployments/edge_only/edge-compose.yml up -d sensor-generator orchestrator
 
 Outputs:
   DashboardInstanceId:

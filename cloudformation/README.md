@@ -41,8 +41,9 @@ security groups together, so there is no cross-stack dependency cycle.
 - `RepositoryUrl` defaults to `https://github.com/Theocode12/Project-Thesis.git`.
 - Default instance sizing uses `t3.micro` for dashboards and sources,
   `t3.small` for edge processing, and `m7i-flex.large` for cloud processing.
-- Processing instances use an encrypted 30 GB gp3 root volume because the
-  detector and classifier images include CPU PyTorch dependencies.
+- Dashboard instances use an encrypted 10 GiB gp3 root volume. Processing
+  instances use an encrypted 30 GB gp3 root volume because the detector and
+  classifier images include CPU PyTorch dependencies.
 - Processing image builds run sequentially to avoid concurrent Docker build
   layers exhausting the instance disk.
 - The dashboard experiment recorder stores data under
@@ -68,14 +69,14 @@ Run the same command for `edge-only.yaml` and `cloud-only.yaml`. Validate each
 Compose file from the repository root:
 
 ```bash
-docker compose -f deploments/edge_only/edge-compose.yml config -q
-docker compose -f deploments/edge_only/dashboard-compose.yml config -q
-docker compose -f deploments/cloud_only/cloud-compose.yml config -q
-docker compose -f deploments/cloud_only/dashboard-compose.yml config -q
-docker compose -f deploments/cloud_only/source-compose.yml config -q
-docker compose -f deploments/hybrid/edge-compose.yml config -q
-docker compose -f deploments/hybrid/cloud-compose.yml config -q
-docker compose -f deploments/hybrid/dashboard-compose.yml config -q
+docker compose -f deployments/edge_only/edge-compose.yml config -q
+docker compose -f deployments/edge_only/dashboard-compose.yml config -q
+docker compose -f deployments/cloud_only/cloud-compose.yml config -q
+docker compose -f deployments/cloud_only/dashboard-compose.yml config -q
+docker compose -f deployments/cloud_only/source-compose.yml config -q
+docker compose -f deployments/hybrid/edge-compose.yml config -q
+docker compose -f deployments/hybrid/cloud-compose.yml config -q
+docker compose -f deployments/hybrid/dashboard-compose.yml config -q
 
 ## Smoke Tests
 
@@ -84,7 +85,7 @@ check the instance bootstrap logs through SSM:
 
 ```bash
 sudo tail -n 200 /var/log/thesis-bootstrap.log
-docker compose -f deploments/<mode>/<file>.yml ps
+docker compose -f deployments/<mode>/<file>.yml ps
 ```
 
 For `edge-only`, verify dashboard-to-edge MQTT and the local classifier. For

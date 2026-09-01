@@ -190,6 +190,13 @@ Resources:
       SecurityGroupIds: [!Ref DashboardSecurityGroup]
       IamInstanceProfile: !Ref InstanceProfile
       KeyName: !If [HasKeyName, !Ref KeyName, !Ref AWS::NoValue]
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 10
+            VolumeType: gp3
+            Encrypted: true
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: thesis-cloud-dashboard
@@ -238,8 +245,8 @@ Resources:
           source /etc/thesis-dashboard.env
           set +a
           wait_for_port "$CLOUD_MQTT_HOST" "$CLOUD_MQTT_PORT"
-          docker compose --env-file /etc/thesis-dashboard.env -f deploments/cloud_only/dashboard-compose.yml config -q
-          docker compose --env-file /etc/thesis-dashboard.env -f deploments/cloud_only/dashboard-compose.yml up -d --build
+          docker compose --env-file /etc/thesis-dashboard.env -f deployments/cloud_only/dashboard-compose.yml config -q
+          docker compose --env-file /etc/thesis-dashboard.env -f deployments/cloud_only/dashboard-compose.yml up -d --build
 
   ProcessingInstance:
     Type: AWS::EC2::Instance
@@ -280,12 +287,12 @@ Resources:
            rm -rf /opt/project/app
           retry git clone --depth 1 --branch '${RepositoryRef}' '${RepositoryUrl}' /opt/project/app
            cd /opt/project/app
-          docker compose -f deploments/cloud_only/cloud-compose.yml config -q
-          docker compose -f deploments/cloud_only/cloud-compose.yml up -d --build cloud-mqtt
-          docker compose -f deploments/cloud_only/cloud-compose.yml build detector
-          docker compose -f deploments/cloud_only/cloud-compose.yml up -d detector
-          docker compose -f deploments/cloud_only/cloud-compose.yml build classifier orchestrator
-          docker compose -f deploments/cloud_only/cloud-compose.yml up -d classifier orchestrator
+          docker compose -f deployments/cloud_only/cloud-compose.yml config -q
+          docker compose -f deployments/cloud_only/cloud-compose.yml up -d --build cloud-mqtt
+          docker compose -f deployments/cloud_only/cloud-compose.yml build detector
+          docker compose -f deployments/cloud_only/cloud-compose.yml up -d detector
+          docker compose -f deployments/cloud_only/cloud-compose.yml build classifier orchestrator
+          docker compose -f deployments/cloud_only/cloud-compose.yml up -d classifier orchestrator
 
   SourceInstance:
     Type: AWS::EC2::Instance
@@ -329,9 +336,9 @@ Resources:
            cd /opt/project/app
           wait_for_port '${ProcessingInstance.PrivateIp}' 1883
           CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp} \
-            docker compose -f deploments/cloud_only/source-compose.yml config -q
+            docker compose -f deployments/cloud_only/source-compose.yml config -q
           CLOUD_MQTT_HOST=${ProcessingInstance.PrivateIp} \
-            docker compose -f deploments/cloud_only/source-compose.yml up -d --build
+            docker compose -f deployments/cloud_only/source-compose.yml up -d --build
 
 Outputs:
   DashboardPublicIp:
