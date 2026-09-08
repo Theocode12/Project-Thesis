@@ -199,7 +199,7 @@ class SensorGeneratorController:
         self.client.send_command("sg_stop")
         self.client.send_command("sg_reset")
         self.store.action_log.log(
-            "state", "Stop command sent (halted and rewound)"
+            "state", "Stop command sent"
         )
 
     def send_set_fault(self, fault: int) -> None:
